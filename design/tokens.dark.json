@@ -1,0 +1,117 @@
+{
+  "_about": "Design tokens for txt2cad: colour roles, type scale, spacing, radii, shadows, motion, layout sizes. Check contrast with: python contrast.py tokens.json && python contrast.py tokens.dark.json. Rebuild the CSS with: python build_tokens.py",
+  "color": {
+    "bg": "#0f1217",
+    "surface": "#171b22",
+    "surface-sunken": "#0b0e12",
+    "border": "#2a303a",
+    "border-input": "#7a8594",
+    "text": "#e8ebf0",
+    "text-muted": "#9aa4b2",
+    "accent": "#7b9bff",
+    "on-accent": "#0b1020",
+    "accent-soft": "#1c2a55",
+    "accent-text": "#a9bdff",
+    "danger": "#ff8a8a",
+    "danger-soft": "#3a1c1c",
+    "success": "#5fd39a",
+    "success-soft": "#14301f",
+    "warning": "#f2c35b",
+    "warning-soft": "#33290f",
+    "viewer-bg": "#12161d"
+  },
+  "pairs": [
+    [
+      "text",
+      "bg"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface-sunken"
+    ],
+    [
+      "text-muted",
+      "bg"
+    ],
+    [
+      "text-muted",
+      "surface"
+    ],
+    [
+      "text-muted",
+      "surface-sunken"
+    ],
+    [
+      "on-accent",
+      "accent"
+    ],
+    [
+      "accent",
+      "bg"
+    ],
+    [
+      "accent",
+      "surface"
+    ],
+    [
+      "accent-text",
+      "accent-soft"
+    ],
+    [
+      "text",
+      "accent-soft"
+    ],
+    [
+      "danger",
+      "surface"
+    ],
+    [
+      "danger",
+      "danger-soft"
+    ],
+    [
+      "success",
+      "surface"
+    ],
+    [
+      "success",
+      "success-soft"
+    ],
+    [
+      "warning",
+      "warning-soft"
+    ],
+    [
+      "warning",
+      "surface"
+    ],
+    [
+      "border-input",
+      "surface",
+      "ui"
+    ],
+    [
+      "border-input",
+      "bg",
+      "ui"
+    ],
+    [
+      "accent",
+      "surface",
+      "ui"
+    ],
+    [
+      "accent",
+      "bg",
+      "ui"
+    ],
+    [
+      "on-accent",
+      "danger"
+    ]
+  ]
+}
