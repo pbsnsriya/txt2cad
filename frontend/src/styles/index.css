@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "./tokens.css";
+@import "./theme.css";
+
+html, body, #root { height: 100%; }
+body { background: var(--tk-bg); color: var(--tk-text); font-family: var(--font-sans); font-size: 0.9375rem; line-height: 1.4667; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+
+/* That Open's attribution mark stays visible; it is only moved clear of the section bar. */
+[data-thatopen-logo] { left: auto !important; right: 0.75rem !important; bottom: 5rem !important; width: 5rem !important; }
