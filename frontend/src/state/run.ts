@@ -36,11 +36,11 @@ export function reduceRun(run: RunView, ev: RunEvent): RunView {
   const d = ev.data;
   const next: RunView = { ...run, seconds: ev.t };
   switch (ev.stage) {
-    case 'build': return { ...next, model: d.model ?? run.model };
-    case 'requirements': return { ...next, checklist: (d.items ?? []).map((r: any) => ({ text: r.text, supported: r.supported !== false })) };
-    case 'approach': return { ...next, approach: d.text ?? ev.message };
-    case 'draft': return { ...next, draft: d.text ?? '' };
-    case 'step': {
+    case 'phase': return { ...next, model: d.model ?? run.model };
+    case 'checklist': return { ...next, checklist: (d.items ?? []).map((r: any) => ({ text: r.text, supported: r.supported !== false })) };
+    case 'strategy': return { ...next, approach: d.text ?? ev.message };
+    case 'writing': return { ...next, draft: d.text ?? '' };
+    case 'move': {
       const phases = run.phases.map((p) => ({ ...p, steps: [...p.steps], errors: [...p.errors] }));
       // A rejected step has no phase of its own: show it under the phase of the latest accepted step.
       const name: string = d.phase ?? phases[phases.length - 1]?.name ?? 'Other';
@@ -50,10 +50,10 @@ export function reduceRun(run: RunView, ev: RunEvent): RunView {
       else phase.errors.push(ev.message);
       return { ...next, phases, draft: '' };
     }
-    case 'partial': return { ...next, previews: d.n ?? run.previews + 1, elements: d.elements ?? run.elements };
-    case 'verify': return { ...next, verify: d.items ?? [], verifyText: ev.message };
-    case 'done': return { ...next, status: 'done', summary: ev.message, notes: d.notes ?? [], ifcUrl: d.ifc_url ?? '', number: d.number ?? 0, elements: d.elements ?? run.elements, draft: '' };
-    case 'error': return { ...next, status: 'error', error: ev.message, draft: '' };
+    case 'preview': return { ...next, previews: d.n ?? run.previews + 1, elements: d.elements ?? run.elements };
+    case 'compare': return { ...next, verify: d.items ?? [], verifyText: ev.message };
+    case 'finished': return { ...next, status: 'done', summary: ev.message, notes: d.notes ?? [], ifcUrl: d.ifc_url ?? '', number: d.number ?? 0, elements: d.elements ?? run.elements, draft: '' };
+    case 'failed': return { ...next, status: 'error', error: ev.message, draft: '' };
     default: return next;
   }
 }

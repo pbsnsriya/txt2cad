@@ -7,7 +7,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card, ListRow } from '../ui/Surface';
 
-const PHASE_ORDER = ['Brief', 'Massing', 'Floor plates', 'Circulation', 'Envelope', 'Revisions', 'Notes', 'Other'];
+const PHASE_ORDER = ['Setup', 'Rooms', 'Doors and stairs', 'Windows and roof', 'Changes', 'Notes', 'Other'];
 
 export function Trace({ run }: { run: RunView }) {
   const end = useRef<HTMLDivElement>(null);
@@ -17,8 +17,8 @@ export function Trace({ run }: { run: RunView }) {
   const lastIndex = phases.length - 1;
   return (
     <div className="flex flex-col gap-4" aria-label="Run trace">
-      <Card variant="sunken" className="text-sm"><span className="font-medium">You asked:</span> {run.prompt}</Card>
-      <TraceSection title="Reading the brief" state={run.checklist.length || run.status !== 'running' ? 'done' : 'active'}
+      <Card variant="sunken" className="text-sm"><span className="font-medium">Your request:</span> {run.prompt}</Card>
+      <TraceSection title="Understanding the request" state={run.checklist.length || run.status !== 'running' ? 'done' : 'active'}
         rationale={run.approach || undefined} stepsLabel="requirement" steps={run.checklist.map((c) => c.text + (c.supported ? '' : ' (not supported yet)'))} />
       {phases.map((p, i) => (
         <TraceSection key={p.name} title={p.name} state={p.errors.length && !p.steps.length ? 'rejected' : run.status === 'running' && i === lastIndex ? 'active' : 'done'}
@@ -37,7 +37,7 @@ export function Trace({ run }: { run: RunView }) {
 function Checklist({ run }: { run: RunView }) {
   return (
     <section className="flex flex-col gap-1">
-      <h3 className="text-sm font-medium">Checked against your brief: {run.verifyText}</h3>
+      <h3 className="text-sm font-medium">Compared with your request: {run.verifyText}</h3>
       <ul className="flex flex-col gap-1 text-sm">
         {run.verify.map((r, i) => (
           <li key={i} className="flex items-start gap-2">
@@ -56,7 +56,7 @@ export function VersionList({ detail, viewing, onOpen, onRestore, onDownload, bu
   const versions = [...detail.versions].reverse();
   return (
     <section className="flex flex-col gap-2" aria-label="Version history">
-      <h3 className="text-sm font-medium">Versions</h3>
+      <h3 className="text-sm font-medium">History</h3>
       {versions.map((v) => (
         <Card key={v.number} variant="flat" selected={v.number === viewing} className="flex flex-col gap-2 p-3">
           <div className="flex items-center justify-between gap-2">

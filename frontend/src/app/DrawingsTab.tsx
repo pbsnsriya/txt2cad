@@ -9,7 +9,7 @@ const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3];
 export function DrawingsTab({ url, onDownload }: { url: string | null; onDownload: (format: string) => void }) {
   const [zoom, setZoom] = useState(2);
   const [failed, setFailed] = useState(false);
-  if (!url) return <EmptyState title="Build something to see its plans here." />;
+  if (!url) return <EmptyState title="Build something to see its floor plans here." />;
   const i = ZOOMS.indexOf(zoom);
   return (
     <div className="flex h-full min-h-0 w-full flex-col">

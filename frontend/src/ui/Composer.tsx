@@ -45,8 +45,8 @@ export function Composer({ variant = 'hero', placeholder, running, disabled, err
       >
         {contextLabel && (
           <div className="flex items-center gap-1 self-start rounded-pill bg-accent-soft px-2 py-0.5 text-xs text-accent-text" data-testid="context-chip">
-            <span className="max-w-64 truncate">About: {contextLabel}</span>
-            <button type="button" aria-label="Clear selection" onClick={onClearContext} className="rounded-pill px-1 hover:bg-accent/20">x</button>
+            <span className="max-w-64 truncate">Re: {contextLabel}</span>
+            <button type="button" aria-label="Unpick" onClick={onClearContext} className="rounded-pill px-1 hover:bg-accent/20">x</button>
           </div>
         )}
         <label id={labelId} htmlFor={`${labelId}-ta`} className="sr-only">Describe what to build</label>

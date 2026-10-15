@@ -7,8 +7,8 @@ import { CheckboxField, SliderField } from '../ui/Inputs';
 import { Card, EmptyState } from '../ui/Surface';
 
 const VIEWS: { id: ViewName; label: string }[] = [
-  { id: 'top', label: 'Top' }, { id: 'bottom', label: 'Bottom' }, { id: 'front', label: 'Front' }, { id: 'back', label: 'Back' },
-  { id: 'left', label: 'Left' }, { id: 'right', label: 'Right' }, { id: 'iso', label: 'Isometric' },
+  { id: 'iso', label: 'Corner' }, { id: 'top', label: 'Above' }, { id: 'front', label: 'Front' },
+  { id: 'back', label: 'Back' }, { id: 'left', label: 'Left' }, { id: 'right', label: 'Right' },
 ];
 
 export type OnReady = (h: ViewerHandle | null) => void;
@@ -61,36 +61,34 @@ export function ViewerPane({ badge, empty, building, theme, onReady, follow, onF
         {loading && !building && <Badge>Loading model...</Badge>}
         {error && <Badge tone="danger">{error}</Badge>}
       </div>
-      <Card variant="raised" className="absolute right-3 top-3 flex w-36 flex-col gap-1 p-1 md:w-44 md:p-2" role="toolbar" aria-label="Camera views">
-        <div className="grid grid-cols-2 gap-1">
-          {VIEWS.map((v) => (
-            <Button key={v.id} size="sm" variant="ghost" className={v.id === 'iso' ? 'col-span-2' : ''} onClick={() => viewer.current?.setView(v.id)}>{v.label}</Button>
-          ))}
-        </div>
-      </Card>
+      <div role="toolbar" aria-label="Camera views" className="absolute left-1/2 top-12 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-0.5 overflow-x-auto rounded-pill border border-border bg-surface p-1 shadow-card md:top-3">
+        {VIEWS.map((v) => (
+          <Button key={v.id} size="sm" variant="ghost" className="rounded-pill px-3" onClick={() => viewer.current?.setView(v.id)}>{v.label}</Button>
+        ))}
+      </div>
       <Card variant="raised" className="absolute bottom-[4.5rem] left-3 hidden max-w-xs items-start gap-2 p-3 text-sm md:flex">
         {selected ? (
           <div className="flex min-w-0 flex-1 flex-col gap-1" data-testid="selection">
             <span className="flex items-center gap-1 text-xs font-medium text-muted"><MousePointerClick className="size-3.5" aria-hidden />Selected</span>
             <span className="truncate font-medium" title={selected.name}>{selected.name || 'Unnamed element'}</span>
-            <span className="text-xs text-muted">{selected.category.replace(/^Ifc/, '') || 'Element'}. Your next message is about this.</span>
-            <Button size="sm" variant="ghost" className="self-start" onClick={() => viewer.current?.clearSelection()}>Clear selection</Button>
+            <span className="text-xs text-muted">{selected.category.replace(/^Ifc/, '') || 'Element'}. Your next message is about it.</span>
+            <Button size="sm" variant="ghost" className="self-start" onClick={() => viewer.current?.clearSelection()}>Unpick</Button>
           </div>
         ) : (
           <>
             <Info className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
-            <span className="pointer-events-none text-muted">Click an element to select it, then describe the change. Drag to orbit, scroll to zoom.</span>
+            <span className="pointer-events-none text-muted">Click any part of the building to pick it, then say what to change. Drag to turn it, scroll to zoom.</span>
           </>
         )}
       </Card>
       <Card variant="raised" className="absolute bottom-3 left-3 right-3 flex items-center gap-3 p-2">
         <Scissors className="ml-1 size-4 shrink-0 text-muted" aria-hidden />
         <div className="w-full max-w-md">
-          <SliderField label="Section height" value={section} min={0.05} max={1} step={0.01} onChange={setSection}
+          <SliderField label="Cut height" value={section} min={0.05} max={1} step={0.01} onChange={setSection}
             valueText={section >= 0.999 ? 'full height' : `cut at ${cutMetres.toFixed(1)} m`} />
         </div>
         <span className="w-28 shrink-0 text-xs text-muted tabular-nums">{section >= 0.999 ? 'full height' : `cut at ${cutMetres.toFixed(1)} m`}</span>
-        <CheckboxField label="Follow build" checked={follow} onCheckedChange={onFollow} />
+        <CheckboxField label="Keep in view" checked={follow} onCheckedChange={onFollow} />
       </Card>
     </div>
   );

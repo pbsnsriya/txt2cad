@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, FileText, Home as HomeIcon, Moon, PanelLeft, Plus, Receipt, ShieldCheck, Sun, Trash2 } from 'lucide-react';
+import { Box, ChevronDown, Download, FileText, FolderOpen, Moon, Receipt, ShieldCheck, Sun } from 'lucide-react';
 import { ApiError, api, runPrompt, type Analysis, type Profile, type ProjectDetail, type ProjectRow } from '../api/client';
 import { emptyRun, reduceRun, startRun, type RunView } from '../state/run';
 import { Badge } from '../ui/Badge';
 import { Button, IconButton } from '../ui/Button';
 import { Composer } from '../ui/Composer';
-import { SplitButton, TooltipProvider, type MenuEntry } from '../ui/Menu';
+import { Menu, TooltipProvider, type MenuEntry } from '../ui/Menu';
 import { ConfirmDialog, Resizer } from '../ui/Overlays';
-import { EmptyState, ListRow, Skeleton } from '../ui/Surface';
+import { EmptyState, Skeleton } from '../ui/Surface';
 import { Tabs } from '../ui/Tabs';
 import { Trace, VersionList } from './Assistant';
 import { ViewerPane, type ViewerHandle } from './ViewerPane';
@@ -16,6 +16,7 @@ import { ReviewTab } from './ReviewTab';
 import { QuantitiesTab } from './QuantitiesTab';
 import type { Picked } from '../viewer/IfcViewer';
 import { HomeScreen } from './HomeScreen';
+import { ProjectsSheet } from './ProjectsSheet';
 
 const STARTERS = ['Two-storey family house', 'Small office floor', 'Studio flat with a kitchen', 'Three-storey townhouse', 'Cabin with one bedroom'];
 const STARTER_PROMPTS: Record<string, string> = {
@@ -25,14 +26,14 @@ const STARTER_PROMPTS: Record<string, string> = {
   'Three-storey townhouse': 'Three storey townhouse with two bedrooms, a study and a bathroom.',
   'Cabin with one bedroom': 'A small one storey cabin with one bedroom and a kitchen.',
 };
-const ASSISTANT_DEFAULT = 390;
+const ASSISTANT_DEFAULT = 380;
 
 function readStored(key: string): string | null { try { return localStorage.getItem(key); } catch { return null; } }
 function writeStored(key: string, v: string): void { try { localStorage.setItem(key, v); } catch { /* storage may be blocked */ } }
 
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (readStored('theme') === 'dark' ? 'dark' : 'light'));
-  const [sidebar, setSidebar] = useState(() => window.innerWidth >= 768);   // below 768px the session list is an overlay, closed by default
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [assistant, setAssistant] = useState(ASSISTANT_DEFAULT);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
@@ -138,8 +139,8 @@ export function App() {
       for await (const ev of runPrompt(project.id, { prompt, base_version: detail?.head?.number ?? null, profile_id: profileId, focus_guid: selected?.guid || null }, ctrl.signal)) {
         latest = reduceRun(latest, ev);
         setRun(latest);
-        if (ev.stage === 'partial') showModel(api.absolute(ev.data.url), followRef.current);
-        if (ev.stage === 'done') {
+        if (ev.stage === 'preview') showModel(api.absolute(ev.data.url), followRef.current);
+        if (ev.stage === 'finished') {
           await openProject(project.id, undefined, followRef.current);
           setRun(latest);
           void refreshProjects();
@@ -192,58 +193,42 @@ export function App() {
   const count = run.elements || analysis?.quantities.totals.elements || 0;
   const badge = building ? (run.elements ? `building · ${run.elements} elements` : 'building') : viewing ? `v${viewing}${count ? ` · ${count} elements` : ''}` : '';
   const exportEntries: MenuEntry[] = [
-    { id: 'ifc', title: 'IFC model', description: 'IFC4 for Revit, Archicad, Navisworks', onSelect: () => download(viewing, 'ifc') },
-    { id: 'dxf', title: 'CAD plans (.dxf)', description: 'every level on named layers, in metres', onSelect: () => download(viewing, 'dxf') },
-    { id: 'spec', title: 'Geometry spec (.json)', description: 'every element the files were built from', onSelect: () => download(viewing, 'spec_json') },
-    { id: 'design', title: 'Design record (.json)', description: 'rooms, doors and windows as designed', onSelect: () => download(viewing, 'design_json') },
-    { id: 'svg', title: 'Plans (.svg)', description: 'the floor plans as a vector picture', onSelect: () => download(viewing, 'svg') },
+    { id: 'ifc', title: 'BIM file (.ifc)', description: 'IFC4, opens in Revit, Archicad, Navisworks', onSelect: () => download(viewing, 'ifc') },
+    { id: 'dxf', title: 'Floor plans (.dxf)', description: 'one drawing per storey, named layers, metres', onSelect: () => download(viewing, 'dxf') },
+    { id: 'svg', title: 'Floor plans (.svg)', description: 'the same plans as a picture', onSelect: () => download(viewing, 'svg') },
+    { id: 'spec', title: 'Geometry data (.json)', description: 'every element the files are built from', onSelect: () => download(viewing, 'spec_json') },
+    { id: 'design', title: 'Design data (.json)', description: 'rooms, doors and windows as designed', onSelect: () => download(viewing, 'design_json') },
   ];
 
   return (
     <TooltipProvider>
-      <div className="flex h-full bg-bg text-fg">
-        {sidebar && (
-          <nav aria-label="Sessions" className="flex w-[270px] shrink-0 flex-col gap-3 border-r border-border bg-bg p-3 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-pop">
-            <div className="flex items-center justify-between px-1 py-1"><span className="text-lg font-bold">txt2cad</span></div>
-            <Button variant="secondary" icon={<Plus className="size-4" aria-hidden />} onClick={() => void newSession()} className="justify-start">New session</Button>
-            <h2 className="mt-2 px-1 text-xs font-medium text-muted">Past sessions</h2>
-            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-              {projects.length === 0 && <p className="px-1 text-sm text-muted">Nothing yet. Describe a building to start.</p>}
-              {projects.map((p) => (
-                <div key={p.id} className="group flex items-center gap-1">
-                  <div className="min-w-0 flex-1"><ListRow title={p.name} selected={detail?.project.id === p.id} onClick={() => void openProject(p.id)} /></div>
-                  <IconButton label={`Delete session ${p.name}`} size="sm" onClick={() => setDeleting(p)}><Trash2 className="size-4" aria-hidden /></IconButton>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-lg border border-border bg-surface p-3 text-sm">
-              <div className="flex items-center justify-between"><span className="font-medium">Backend</span><Badge tone={backend.ok ? 'success' : 'danger'}>{backend.ok ? 'Connected' : 'Offline'}</Badge></div>
-              <p className="mt-1 text-xs text-muted">Model: {modelLabel}</p>
-            </div>
-          </nav>
-        )}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[59px] shrink-0 items-center gap-2 border-b border-border px-3">
-            <IconButton label={sidebar ? 'Hide sessions' : 'Show sessions'} onClick={() => setSidebar((s) => !s)}><PanelLeft className="size-4" aria-hidden /></IconButton>
-            <HomeIcon className="size-4 text-muted" aria-hidden />
-            <span className="text-sm text-muted">/</span>
-            <h1 className="min-w-0 flex-1 truncate text-sm font-medium" title={detail?.project.name}>{detail?.project.name ?? 'New session'}</h1>
-            <SplitButton label="Export IFC" onMain={() => download(viewing, 'ifc')} entries={exportEntries} disabled={!viewing} disabledReason="Nothing to export yet" />
-            <IconButton label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-              {theme === 'dark' ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
-            </IconButton>
-          </header>
-          {!inWorkspace ? (
-            <HomeScreen starters={STARTERS} prompts={STARTER_PROMPTS} projects={projects} modelLabel={modelLabel} modelEntries={modelEntries}
-              disabled={!backend.ok} error={error || undefined} onSubmit={(t) => void submit(t)} onOpen={(id) => void openProject(id)} />
-          ) : (
-          <main className="flex min-h-0 flex-1 flex-col md:flex-row overflow-y-auto md:overflow-visible">
-            <section className="relative flex h-[52vh] min-h-72 shrink-0 min-w-0 flex-col md:h-auto md:min-h-0 md:flex-1 md:shrink" aria-label="Model">
+      <div className="flex h-full flex-col bg-bg text-fg">
+        <header className="flex h-[56px] shrink-0 items-center gap-2 border-b border-border px-3">
+          <Button variant="secondary" size="sm" icon={<FolderOpen className="size-4" aria-hidden />} onClick={() => setProjectsOpen(true)}>Projects</Button>
+          <h1 className="min-w-0 flex-1 truncate px-1 text-sm font-medium" title={detail?.project.name}>{detail?.project.name ?? 'txt2cad'}</h1>
+          <span role="status"><Badge tone={backend.ok ? 'success' : 'danger'}>{backend.ok ? 'Server online' : 'Server offline'}</Badge></span>
+          <Menu
+            trigger={
+              <Button size="sm" variant="secondary" disabled={!viewing} title={viewing ? undefined : 'Build something to export'}
+                icon={<Download className="size-4" aria-hidden />}>Export<ChevronDown className="size-3.5" aria-hidden /></Button>
+            }
+            entries={exportEntries}
+          />
+          <IconButton label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+            {theme === 'dark' ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
+          </IconButton>
+        </header>
+        {!inWorkspace ? (
+          <HomeScreen starters={STARTERS} prompts={STARTER_PROMPTS} projects={projects} modelLabel={modelLabel} modelEntries={modelEntries}
+            disabled={!backend.ok} error={error || undefined} onSubmit={(t) => void submit(t)} onOpen={(id) => void openProject(id)} />
+        ) : (
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
+            <section className="relative flex h-[52vh] min-h-72 min-w-0 shrink-0 flex-col md:order-3 md:h-auto md:min-h-0 md:flex-1 md:shrink" aria-label="Model">
               <Tabs value={tab} onValueChange={setTab} className="flex h-full min-h-0 flex-col" contentClassName="min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col"
                 items={[
-                  { id: '3d', label: '3D model', icon: <Box className="size-4" aria-hidden />, keepMounted: true, content: (
+                  { id: '3d', label: '3D view', icon: <Box className="size-4" aria-hidden />, keepMounted: true, content: (
                     <ViewerPane badge={badge} empty={!viewing && !building} building={building} theme={theme} onReady={onViewer} follow={follow} onFollow={setFollow} selected={selected} onPick={setSelected} />) },
-                  { id: 'dr', label: 'Drawings', icon: <FileText className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
+                  { id: 'dr', label: 'Plans', icon: <FileText className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
                     content: <DrawingsTab url={detail && viewing ? `${api.drawingUrl(detail.project.id, viewing)}?v=${detail.head?.id ?? ''}` : null} onDownload={(f) => download(viewing, f)} /> },
                   { id: 'cr', label: 'Design check', icon: <ShieldCheck className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
                     content: <ReviewTab analysis={analysis} loading={analysing} onShow={(g) => { setTab('3d'); setTimeout(() => void viewer.current?.highlight(g), 150); }} /> },
@@ -251,10 +236,11 @@ export function App() {
                     content: <QuantitiesTab analysis={analysis} loading={analysing} /> },
                 ]} />
             </section>
-            <div className="hidden md:flex"><Resizer label="Assistant width" value={assistant} min={300} max={640} onChange={setAssistant} onReset={() => setAssistant(ASSISTANT_DEFAULT)} /></div>
-            <aside aria-label="Assistant" style={{ "--aw": `${assistant}px` } as React.CSSProperties} className="flex min-h-96 w-full shrink-0 flex-col border-t border-border bg-surface md:min-h-0 md:w-[var(--aw)] md:border-l md:border-t-0">
+            <div className="hidden md:order-2 md:flex"><Resizer side="right" label="Conversation width" value={assistant} min={300} max={640} onChange={setAssistant} onReset={() => setAssistant(ASSISTANT_DEFAULT)} /></div>
+            <aside aria-label="Conversation" style={{ "--aw": `${assistant}px` } as React.CSSProperties}
+              className="flex min-h-96 w-full shrink-0 flex-col border-t border-border bg-surface md:order-1 md:min-h-0 md:w-[var(--aw)] md:border-r md:border-t-0">
               <div className="flex-1 overflow-y-auto p-4 md:min-h-0">
-                {detail && run.status === 'idle' && !head && <EmptyState title="Describe what to build below." />}
+                {detail && run.status === 'idle' && !head && <EmptyState title="Say what to build in the box below." />}
                 <Trace run={run} />
                 {detail && head && run.status !== 'running' && (
                   <div className="mt-4 flex flex-col gap-4">
@@ -267,17 +253,18 @@ export function App() {
               </div>
               <div className="border-t border-border p-3">
                 <Composer key={`${detail?.project.id ?? 'new'}-${initialPrompt}`} variant="docked" initialValue={initialPrompt}
-                  placeholder={detail?.head ? 'Describe a change...' : 'Describe a building...'} modelLabel={modelLabel} modelEntries={modelEntries}
+                  placeholder={detail?.head ? 'What should change?' : 'Describe the building you want...'} modelLabel={modelLabel} modelEntries={modelEntries}
                   running={building} disabled={!backend.ok} error={error || undefined}
                   contextLabel={selected ? (selected.name || selected.category.replace(/^Ifc/, '')) : undefined} onClearContext={() => viewer.current?.clearSelection()} onSubmit={(t) => void submit(t)} onStop={() => abort.current?.abort()} />
               </div>
             </aside>
           </main>
-          )}
-        </div>
+        )}
       </div>
-      <ConfirmDialog open={Boolean(deleting)} onOpenChange={(o) => !o && setDeleting(null)} title="Delete this session?"
-        body={`"${deleting?.name ?? ''}" and all its versions will be removed from this computer.`} confirmLabel="Delete session" onConfirm={() => void confirmDelete()} />
+      <ProjectsSheet open={projectsOpen} onOpenChange={setProjectsOpen} projects={projects} currentId={detail?.project.id}
+        onOpen={(id) => void openProject(id)} onNew={() => void newSession()} onDelete={setDeleting} />
+      <ConfirmDialog open={Boolean(deleting)} onOpenChange={(o) => !o && setDeleting(null)} title="Delete this project?"
+        body={`"${deleting?.name ?? ''}" and all its versions will be removed from this computer.`} confirmLabel="Delete project" onConfirm={() => void confirmDelete()} />
     </TooltipProvider>
   );
 }
