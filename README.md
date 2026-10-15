@@ -139,11 +139,19 @@ docs/              architecture, API, screenshots
 ## Tests
 
 ```bash
-cd backend  && .venv/Scripts/python -m pytest        # 91 tests on the offline mock, no network
-cd frontend && npm test                                # 7 tests
+cd backend  && .venv/Scripts/python -m pytest        # 76 tests on the offline mock, no network
+cd frontend && npm test                                # 8 tests
 cd frontend && npx tsc --noEmit                        # type check
 cd design   && python contrast.py tokens.json          # WCAG contrast of every text/background pair (also tokens.dark.json)
+cd e2e && npm install && npm test                      # 30 browser tests, isolated backend and database, offline mock
+cd e2e && npm run test:live                            # 1 test against Gemini (needs GEMINI_API_KEY; costs a few cents)
 ```
+
+The browser tests start their own backend (port 8771) and frontend (port 5175) with a throwaway database, drive the app the way a
+person does (roles and labels, keyboard only, a 390 px phone width), and fail on any console error, uncaught exception, 5xx response,
+or serious accessibility violation found by axe. Set `E2E_PYTHON` to the backend's Python if it is not `python`. They use the Edge that
+ships with Windows; on other systems run `npx playwright install chromium` and set `E2E_CHANNEL=chromium`. The plan is in
+[docs/testing.md](docs/testing.md).
 
 What the tests pin down: step validation and the messages sent back to the model, derive on shared edges and openings, stairs (riser,
 tread, well in the slab above, direction), IFC geometry (units, tessellation, voids), GlobalId stability across edits, DXF audit and
@@ -164,4 +172,5 @@ reader on every prefix of a real reply.
 
 - [docs/architecture.md](docs/architecture.md): pipeline, data model, geometry rules, concurrency, decisions
 - [docs/api.md](docs/api.md): HTTP routes and the event stream
+- [docs/testing.md](docs/testing.md): the test plan and what is checked by hand
 - [design/components.md](design/components.md): component specifications

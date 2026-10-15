@@ -32,7 +32,7 @@ export function ViewerPane({ badge, empty, building, theme, onReady, follow, onF
     onReady({
       load: async (url, refit) => {
         setLoading(true);
-        try { await v.load(url, 'model', refit); setError(''); } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
+        try { if (await v.load(url, 'model', refit)) host.current?.setAttribute('data-model-url', url); setError(''); } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
       },
       clear: () => v.clear(),
       applyTheme: () => v.applyTheme(),

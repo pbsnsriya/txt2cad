@@ -107,18 +107,18 @@ export class IfcViewer {
   }
 
   /** Load an IFC from a URL. If a newer load starts first, this one is discarded. */
-  async load(url: string, name = 'model', refit = false): Promise<void> {
+  async load(url: string, name = 'model', refit = false): Promise<boolean> {
     await this.ready;
-    if (this.disposed) return;
+    if (this.disposed) return false;
     const mine = ++this.pending;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`could not download the model (HTTP ${res.status})`);
     const bytes = new Uint8Array(await res.arrayBuffer());
-    if (mine !== this.pending) return;
+    if (mine !== this.pending) return false;
     const next = await this.loader.load(bytes, true, `${name}-${mine}`);
     if (mine !== this.pending) {
       await this.fragments.core.disposeModel(next.modelId);
-      return;
+      return false;
     }
     const previous = this.model;
     this.model = next;
@@ -129,6 +129,7 @@ export class IfcViewer {
     }
     if (!this.framed || refit) { this.fit(); this.framed = true; }   // refit while following a build, so the growing model stays in frame
     this.onLoaded?.({ box: next.box });
+    return true;
   }
 
   clear(): void {

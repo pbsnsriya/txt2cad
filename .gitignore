@@ -9,3 +9,9 @@ backend/.env
 frontend/node_modules/
 frontend/dist/
 frontend/public/wasm/
+
+# e2e
+e2e/node_modules/
+e2e/.data/
+e2e/test-results/
+e2e/playwright-report/
