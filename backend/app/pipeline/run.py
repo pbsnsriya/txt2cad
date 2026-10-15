@@ -14,7 +14,7 @@ from typing import Any, AsyncIterator
 
 from .. import config
 from ..db import repo
-from ..domain import checks
+from ..domain import checks, sizes
 from ..domain.derive import DesignError, derive
 from ..domain.describe import describe, describe_focus
 from ..domain.design import Design
@@ -115,7 +115,7 @@ async def _run(inp: RunInput, emit) -> None:
     await emit("phase", "Understanding the request", mode=mode, model=inp.llm_label)
 
     req_raw = await _call_llm(inp, LLMRequest(REQUIREMENTS_SYSTEM, inp.prompt, "requirements", REQUIREMENTS_SCHEMA, meta={"prompt": inp.prompt}), emit=emit)
-    checklist = [checks.normalise(r) for r in req_raw.get("requirements", [])]
+    checklist = checks.merge_sizes([checks.normalise(r) for r in req_raw.get("requirements", [])], sizes.extract(inp.prompt))
     await emit("checklist", f"{len(checklist)} requirements", items=checklist)
 
     focus = _focus_text(inp, design, guids)

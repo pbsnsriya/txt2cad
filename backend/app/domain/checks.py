@@ -12,7 +12,7 @@ ALWAYS_BUILDABLE = {"storeys", "room", "window", "door"}
 
 def normalise(raw: dict[str, Any]) -> dict[str, Any]:
     """A checklist item as the app stores it (kind, text, supported, params)."""
-    params = {k: raw[k] for k in ("keyword", "count", "level", "side") if raw.get(k) is not None}
+    params = {k: raw[k] for k in ("keyword", "count", "level", "side", "width", "depth", "area") if raw.get(k) is not None}
     keyword = str(params.get("keyword", "")).lower()
     kind = raw.get("kind", "other")
     # Small models mark everything "unsupported". For kinds this tool really builds, ignore the model's flag; keep it for the rest.
@@ -27,6 +27,77 @@ def _matching_rooms(design: Design, keyword: str, level: str | None):
     return [r for r in design.rooms if (r.kind == kw or kw in r.name.lower()) and (level is None or r.level == level)]
 
 
+SIZE_TOLERANCE_M = 0.15        # a stated room size, either way round
+FOOTPRINT_TOLERANCE_M = 0.25   # a stated overall size
+AREA_TOLERANCE = 0.10          # a stated area, as a fraction
+SIZE_KINDS = ("dimension", "area")
+
+
+def merge_sizes(items: list[dict[str, Any]], sizes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The sizes read from the prompt replace whatever size items the model listed: those have no numbers to measure."""
+    return [i for i in items if i.get("kind") not in SIZE_KINDS] + sizes
+
+
+def _rect_area(r) -> float:
+    return r.rect[2] * r.rect[3]
+
+
+def _footprint(design: Design) -> tuple[float, float] | None:
+    """Overall width and depth of the lowest storey that has rooms."""
+    for lv in design.levels:
+        rooms = [r for r in design.rooms if r.level == lv.id]
+        if rooms:
+            x0, y0 = min(r.rect[0] for r in rooms), min(r.rect[1] for r in rooms)
+            x1, y1 = max(r.rect[0] + r.rect[2] for r in rooms), max(r.rect[1] + r.rect[3] for r in rooms)
+            return round(x1 - x0, 2), round(y1 - y0, 2)
+    return None
+
+
+def _same_size(a: tuple[float, float], b: tuple[float, float], tol: float) -> bool:
+    return (abs(a[0] - b[0]) <= tol and abs(a[1] - b[1]) <= tol) or (abs(a[0] - b[1]) <= tol and abs(a[1] - b[0]) <= tol)
+
+
+def _check_dimension(design: Design, p: dict[str, Any]) -> tuple[str, str]:
+    want = (float(p["width"]), float(p["depth"]))
+    asked = f"asked {want[0]:.1f} x {want[1]:.1f} m"
+    if p["keyword"] == "building":
+        got = _footprint(design)
+        if got is None:
+            return "unmet", f"{asked}; the design has no rooms yet"
+        if _same_size(got, want, FOOTPRINT_TOLERANCE_M):
+            return "met", f"{asked}, built {got[0]:.1f} x {got[1]:.1f} m"
+        return "unmet", (f"{asked} for the outline of the ground floor, built {got[0]:.1f} x {got[1]:.1f} m; "
+                         f"resize and rearrange the rooms so their outer edges measure {want[0]:.1f} x {want[1]:.1f} m")
+    rooms = _matching_rooms(design, str(p["keyword"]), None)
+    if not rooms:
+        return "unmet", f"{asked}, but there is no '{p['keyword']}' room to measure; add one with exactly that size"
+    for r in rooms:
+        if _same_size((r.rect[2], r.rect[3]), want, SIZE_TOLERANCE_M):
+            return "met", f"{asked}, built {r.rect[2]:.1f} x {r.rect[3]:.1f} m ({r.name})"
+    r = rooms[0]
+    return "unmet", (f"{asked}, but '{r.name}' (id {r.id}) is {r.rect[2]:.1f} x {r.rect[3]:.1f} m; "
+                     f"send a room step with that name and rect [{r.rect[0]:g}, {r.rect[1]:g}, {want[0]:g}, {want[1]:g}], and move its neighbours if they now overlap")
+
+
+def _check_area(design: Design, p: dict[str, Any]) -> tuple[str, str]:
+    want = float(p["area"])
+    asked = f"asked about {want:.0f} m2"
+    if p["keyword"] == "building":
+        got = sum(_rect_area(r) for r in design.rooms)
+        if abs(got - want) <= max(want * AREA_TOLERANCE, 1.0):
+            return "met", f"{asked} in total, built {got:.1f} m2"
+        return "unmet", (f"{asked} in total, the design has {got:.1f} m2; "
+                         f"size the rooms so that all floors together add up to about {want:.0f} m2 (within 10%)")
+    rooms = _matching_rooms(design, str(p["keyword"]), None)
+    if not rooms:
+        return "unmet", f"{asked}, but there is no '{p['keyword']}' room to measure"
+    for r in rooms:
+        if abs(_rect_area(r) - want) <= max(want * AREA_TOLERANCE, 1.0):
+            return "met", f"{asked}, built {_rect_area(r):.1f} m2 ({r.name})"
+    r = rooms[0]
+    return "unmet", f"{asked}, but '{r.name}' (id {r.id}) is {_rect_area(r):.1f} m2; resize it to about {want:.0f} m2 within 10%"
+
+
 def check(design: Design, requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
     for req in requirements:
@@ -34,6 +105,10 @@ def check(design: Design, requirements: list[dict[str, Any]]) -> list[dict[str, 
         p = r.get("params", {})
         if not r.get("supported", True):
             r["status"], r["detail"] = "unsupported", "this tool cannot build it yet; noted in the version summary"
+        elif r["kind"] == "dimension" and {"keyword", "width", "depth"} <= p.keys():
+            r["status"], r["detail"] = _check_dimension(design, p)
+        elif r["kind"] == "area" and {"keyword", "area"} <= p.keys():
+            r["status"], r["detail"] = _check_area(design, p)
         elif r["kind"] == "storeys":
             want, have = int(p.get("count", 1)), design.storeys()
             r["status"], r["detail"] = ("met", f"{have} storey(s)") if have == want else ("unmet", f"wanted {want} storeys, the design has {have}")

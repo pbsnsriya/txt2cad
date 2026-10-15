@@ -163,3 +163,14 @@ def test_a_validation_error_is_one_readable_sentence(client):
     assert r.json()["detail"].startswith("prompt:") and "8000" in r.json()["detail"]
     r = client.post(f"/api/projects/{pid}/runs", json={})
     assert r.status_code == 422 and r.json()["detail"].startswith("prompt:")
+
+
+def test_stated_sizes_reach_the_checklist_and_are_measured(client):
+    pid = client.post("/api/projects", json={"name": "Sizes"}).json()["id"]
+    evs = run(client, pid, "A one storey house with a living room 6 m by 4 m and a kitchen.")
+    items = [e for e in evs if e["stage"] == "checklist"][0]["data"]["items"]
+    size = [i for i in items if i["kind"] == "dimension"]
+    assert len(size) == 1 and size[0]["params"] == {"keyword": "living", "width": 6.0, "depth": 4.0}
+    compared = [e for e in evs if e["stage"] == "compare"][-1]["data"]["items"]
+    measured = [i for i in compared if i["kind"] == "dimension"][0]
+    assert measured["status"] in ("met", "unmet") and "asked 6.0 x 4.0 m" in measured["detail"]   # the offline model does not try to hit it, but it is measured

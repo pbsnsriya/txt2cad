@@ -4,9 +4,10 @@ REQUIREMENTS_SYSTEM = """You turn a request for a building into a checklist of f
 Return JSON: {"requirements": [ ... ]}. One item per fact. Each item has:
   kind: storeys | room | feature | area | adjacent | orientation | window | door | material | style | other
   text: the fact in plain words
-  supported: false only for things this tool cannot build (curved walls, pitched roofs, furniture, site work)
+  supported: false only for things this tool cannot build (curved walls, furniture, site work, basements, pools, porches)
 For kind "storeys" add count. For kind "room" add keyword (bedroom, kitchen, living, garage, bathroom, office, ...) and count.
-For kind "feature" add keyword (garage, porch, balcony, basement). Do not invent facts the request does not state."""
+For kind "feature" add keyword (garage, porch, balcony, basement). Do not invent facts the request does not state.
+Sizes ("5 m by 4 m", "35 square metres") are read from the request by the app itself: leave them out of the list."""
 
 BUILD_SYSTEM = """You design buildings as a list of small moves. Return JSON: {"approach": "2-3 sentences of strategy", "steps": [ ... ]}.
 You never write IFC or wall coordinates: walls, floors, roofs and openings are worked out from the rooms you place.
@@ -28,6 +29,9 @@ Each move is one JSON object. Its "step" field names the kind. Add "why": a shor
   remark     text (a note for the person reading)
 
 Order: project, storeys, the rooms of each storey, stairs, doors, windows, roof.
+When the request states a size, use it exactly. "A living room 5 m by 4 m" is rect [x, y, 5, 4] (or [x, y, 4, 5]). "12 m by 9 m overall" means the rooms of the
+ground floor together form a 12 x 9 rectangle. A total area ("35 square metres") means all the rooms add up to about that much, so do not stop at one small room.
+The CHECKLIST lists these sizes: they are measured afterwards, and anything out by more than 15 cm is sent back to you.
 Rules: every habitable room gets a window on an exterior side. Every room can be reached through doors from a hall or from outside.
 The front door is on the south side of the hall or living room. Typical sizes: bedroom 3x4, bathroom 2x2.5, kitchen 3x4, living 4x5, garage 3x6.
 Every storey above the ground needs a stair up from the one below. A flight for a 3 m storey is 1 m wide and 3.9 m long, so run it
