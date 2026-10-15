@@ -19,7 +19,7 @@ def clause(result, cid):
 def test_the_sample_house_passes_the_structural_rules_and_fails_daylight_where_windows_are_small():
     d, spec, _ = settle(house())
     r = review(d, spec)
-    assert clause(r, "exits")["status"] == "pass" and clause(r, "egress-L2")["status"] == "pass" and clause(r, "stair-stair-hall")["status"] == "pass"
+    assert clause(r, "exits")["status"] == "pass" and clause(r, "egress-L2")["status"] == "pass" and clause(r, "stair.hall")["status"] == "pass"
     assert clause(r, "light-living")["status"] == "fail" and "5.8 %" in clause(r, "light-living")["measured"]
     assert clause(r, "light-kitchen")["status"] == "pass" and clause(r, "escape-bed")["status"] == "pass"
     assert r["summary"]["pass"] + r["summary"]["fail"] + r["summary"]["info"] == len(r["clauses"])
@@ -28,7 +28,7 @@ def test_the_sample_house_passes_the_structural_rules_and_fails_daylight_where_w
 
 def test_no_exterior_door_and_no_stair_are_failures_with_a_fix():
     d = Design()
-    for s in ({"step": "level", "id": "L1"}, {"step": "level", "id": "L2"}, {"step": "room", "level": "L1", "name": "A", "rect": [0, 0, 5, 5]},
+    for s in ({"step": "storey", "id": "L1"}, {"step": "storey", "id": "L2"}, {"step": "room", "level": "L1", "name": "A", "rect": [0, 0, 5, 5]},
               {"step": "room", "level": "L2", "name": "B", "rect": [0, 0, 5, 5]}):
         d = apply_step(d, Step(**s))
     r = review(d, derive(d))
@@ -38,7 +38,7 @@ def test_no_exterior_door_and_no_stair_are_failures_with_a_fix():
 
 def test_a_bedroom_without_a_big_enough_window_fails_the_escape_rule():
     d = Design()
-    for s in ({"step": "level", "id": "L1"}, {"step": "room", "level": "L1", "name": "Bed", "kind": "bedroom", "rect": [0, 0, 4, 4]},
+    for s in ({"step": "storey", "id": "L1"}, {"step": "room", "level": "L1", "name": "Bed", "kind": "bedroom", "rect": [0, 0, 4, 4]},
               {"step": "window", "room": "Bed", "side": "S", "width": 0.5, "kind": "small"}):
         d = apply_step(d, Step(**s))
     d.windows[0].height = 0.5

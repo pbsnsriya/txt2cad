@@ -14,6 +14,7 @@ Point = tuple[float, float]
 
 class WallSpec(BaseModel):
     id: str
+    label: str = ""          # human name, e.g. "Kitchen: south wall"; shown in the viewer and used as the IFC name
     level: str
     start: Point
     end: Point
@@ -29,6 +30,7 @@ class WallSpec(BaseModel):
 
 class SlabSpec(BaseModel):
     id: str
+    label: str = ""
     level: str
     outline: list[Point]
     thickness: float
@@ -38,6 +40,7 @@ class SlabSpec(BaseModel):
 
 class RoofSpec(BaseModel):
     id: str
+    label: str = ""
     level: str
     outline: list[Point]
     thickness: float
@@ -46,6 +49,7 @@ class RoofSpec(BaseModel):
 
 class OpeningSpec(BaseModel):
     id: str
+    label: str = ""
     kind: Literal["door", "window"]
     host: str                # wall id
     offset: float            # distance of the opening centre along the wall from its start
@@ -58,6 +62,7 @@ class OpeningSpec(BaseModel):
 
 class StairSpec(BaseModel):
     id: str
+    label: str = ""
     level: str                 # the level it starts on
     to_level: str
     outline: list[Point]       # plan footprint (rectangle)

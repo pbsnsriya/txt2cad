@@ -14,7 +14,7 @@ from shapely.geometry import box
 
 from .design import Design, Door, Level, Room, Stair, Window, MAX_LEVELS
 
-STEP_KINDS = ("building", "level", "room", "layout", "door", "window", "stair", "roof", "material", "remove", "note")
+STEP_KINDS = ("project", "storey", "room", "rearrange", "door", "window", "stair", "roof", "material", "delete", "remark")
 SIDE_WORDS = {"north": "N", "south": "S", "east": "E", "west": "W", "n": "N", "s": "S", "e": "E", "w": "W"}
 OVERLAP_TOLERANCE_M2 = 1e-6
 
@@ -151,10 +151,10 @@ def apply_step(design: Design, step: Step) -> Design:
     if kind not in STEP_KINDS:
         raise StepError(f"unknown step '{kind}'; use one of: {', '.join(STEP_KINDS)}")
 
-    if kind == "building":
+    if kind == "project":
         d.name = step.name or d.name
         d.description = step.description or d.description
-    elif kind == "level":
+    elif kind == "storey":
         lid = norm_level(step.id) or f"L{len(d.levels) + 1}"
         existing = d.level(lid)
         if existing is None and len(d.levels) >= MAX_LEVELS:
@@ -166,10 +166,10 @@ def apply_step(design: Design, step: Step) -> Design:
         d.levels = [lv if x.id == lid else x for x in d.levels] if existing else [*d.levels, lv]
     elif kind == "room":
         _apply_room(d, step)
-    elif kind == "layout":
+    elif kind == "rearrange":
         lid = _default_level(d, step.level)
         if d.level(lid or "") is None:
-            raise StepError(f"layout: unknown level '{step.level}' (levels: {', '.join(x.id for x in d.levels) or 'none yet'})")
+            raise StepError(f"rearrange: unknown level '{step.level}' (levels: {', '.join(x.id for x in d.levels) or 'none yet'})")
         old = {r.name.lower(): r for r in d.rooms if r.level == lid}
         d.rooms = [r for r in d.rooms if r.level != lid]
         for spec in step.rooms or []:
@@ -183,7 +183,7 @@ def apply_step(design: Design, step: Step) -> Design:
             if other.level != room.level:
                 raise StepError(f"door: '{room.name}' and '{other.name}' are on different levels")
             to = other.id
-        did = step.id or _unique_id({x.id for x in d.doors}, f"door-{room.id}-{to}")
+        did = step.id or _unique_id({x.id for x in d.doors}, f"door.{room.id}.{to}")
         data = dict(id=did, room=room.id, to=to, side=norm_side(step.side), at=step.at if step.at is not None else 0.5)
         if step.kind:
             data["kind"] = step.kind
@@ -195,7 +195,7 @@ def apply_step(design: Design, step: Step) -> Design:
         side = norm_side(step.side)
         if side is None:
             raise StepError(f"window: 'side' (N, S, E or W) is required for '{room.name}'")
-        wid = step.id or _unique_id({x.id for x in d.windows}, f"win-{room.id}-{side}")
+        wid = step.id or _unique_id({x.id for x in d.windows}, f"window.{room.id}.{side}")
         data = dict(id=wid, room=room.id, side=side, at=step.at if step.at is not None else 0.5)
         if step.kind:
             data["kind"] = step.kind
@@ -209,7 +209,7 @@ def apply_step(design: Design, step: Step) -> Design:
         side = norm_side(step.side)
         if side is None:
             raise StepError(f"stair: 'side' (N, S, E or W: the wall it runs along) is required for '{room.name}'")
-        sid = step.id if isinstance(step.id, str) and step.id else f"stair-{room.id}"
+        sid = step.id if isinstance(step.id, str) and step.id else f"stair.{room.id}"
         data: dict = dict(id=sid, room=room.id, side=side, to_level=norm_level(step.to_level))
         if step.width:
             data["width"] = step.width
@@ -221,9 +221,9 @@ def apply_step(design: Design, step: Step) -> Design:
         if step.material not in ("masonry", "concrete", "timber", "plaster"):
             raise StepError("material must be masonry, concrete, timber or plaster")
         d.wall_material = step.material  # type: ignore[assignment]
-    elif kind == "remove":
+    elif kind == "delete":
         _remove(d, step.id)
-    elif kind == "note":
+    elif kind == "remark":
         d.notes.append(step.text or "")
     return d
 

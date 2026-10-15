@@ -43,18 +43,18 @@ def run(client, pid, prompt=PROMPT, **extra):
 def test_health_and_profiles(client):
     assert client.get("/api/health").json()["llm"]["provider"] == "mock"
     names = {p["name"]: p for p in client.get("/api/llm/profiles").json()}
-    assert names["Offline mock"]["ready"] and not names["Gemini"]["ready"]
+    assert names["Practice mode"]["ready"] and not names["Gemini"]["ready"]
 
 
 def test_full_run_streams_steps_and_saves_a_valid_version(client):
     pid = client.post("/api/projects", json={"name": "House"}).json()["id"]
     evs = run(client, pid)
     stages = [e["stage"] for e in evs]
-    assert stages[0] == "build" and stages[-1] == "done" and "requirements" in stages and "approach" in stages
+    assert stages[0] == "phase" and stages[-1] == "finished" and "checklist" in stages and "strategy" in stages
     assert [e["seq"] for e in evs] == list(range(1, len(evs) + 1))
-    steps = [e for e in evs if e["stage"] == "step"]
-    assert len(steps) > 10 and all(s["data"]["ok"] for s in steps) and {s["data"]["phase"] for s in steps} >= {"Massing", "Floor plates", "Circulation", "Envelope"}
-    assert any(e["stage"] == "partial" for e in evs)                  # previews were compiled while the reply streamed
+    steps = [e for e in evs if e["stage"] == "move"]
+    assert len(steps) > 10 and all(s["data"]["ok"] for s in steps) and {s["data"]["phase"] for s in steps} >= {"Setup", "Rooms", "Doors and stairs", "Windows and roof"}
+    assert any(e["stage"] == "preview" for e in evs)                  # previews were compiled while the reply streamed
     done = evs[-1]["data"]
     assert done["number"] == 1 and done["elements"] > 50
 
@@ -62,7 +62,7 @@ def test_full_run_streams_steps_and_saves_a_valid_version(client):
     assert head["head"]["number"] == 1 and len(head["versions"]) == 1
     assert {r["kind"] for r in head["head"]["requirements"]} >= {"storeys", "room"}
     assert all(r["status"] == "met" for r in head["head"]["requirements"] if r["kind"] in ("storeys", "room"))
-    verify = [e for e in evs if e["stage"] == "verify"][-1]
+    verify = [e for e in evs if e["stage"] == "compare"][-1]
     assert verify["data"]["tally"]["unmet"] == 0 and "unmet" in verify["message"]
 
     ifc = client.get(f"/api/projects/{pid}/versions/1/ifc")
@@ -77,7 +77,7 @@ def test_full_run_streams_steps_and_saves_a_valid_version(client):
 def test_preview_files_are_served_by_id_only(client):
     pid = client.post("/api/projects", json={}).json()["id"]
     evs = run(client, pid, "a small cabin with a kitchen")
-    url = next(e for e in evs if e["stage"] == "partial")["data"]["url"]
+    url = next(e for e in evs if e["stage"] == "preview")["data"]["url"]
     run_id = url.split("/")[-2]
     assert url.startswith(f"/api/files/previews/{pid}/")
     assert client.get(url).status_code == 200            # the URL the event carries must work as-is
@@ -89,7 +89,7 @@ def test_an_edit_that_changes_nothing_is_reported_and_does_not_create_a_version(
     pid = client.post("/api/projects", json={}).json()["id"]
     run(client, pid)
     evs = run(client, pid, "add a basement", base_version=1)
-    assert evs[-1]["stage"] == "error" and "no applicable steps" in evs[-1]["message"]
+    assert evs[-1]["stage"] == "failed" and "could be applied" in evs[-1]["message"]
     assert client.get(f"/api/projects/{pid}").json()["head"]["number"] == 1
 
 
@@ -145,12 +145,12 @@ def test_the_selected_element_reaches_the_model_as_words(client, monkeypatch):
     pid = client.post("/api/projects", json={}).json()["id"]
     run(client, pid, "a small cabin with a kitchen and one bedroom")
     guids = json.loads(__import__("app.db.repo", fromlist=["x"]).get_version(config.LOCAL_OWNER, pid, 1)["guids_json"])
-    guid = guids["element:L1-space-kitchen"]
+    guid = guids["element:room.L1.kitchen"]
     monkeypatch.setattr(routes, "make_llm", lambda profile: Spy())
     evs = run(client, pid, "make this room bigger", base_version=1, focus_guid=guid)
     build = [r for r in seen if r.schema_name == "build"][0]
     assert "SELECTED IN THE VIEWER: the room kitchen 'Kitchen'" in build.user
-    assert any(e["stage"] == "focus" for e in evs)
+    assert any(e["stage"] == "selected" for e in evs)
     seen.clear()
     run(client, pid, "make this room bigger", base_version=2, focus_guid="0" * 22)      # an unknown id is ignored, not an error
     assert "SELECTED IN THE VIEWER" not in [r for r in seen if r.schema_name == "build"][0].user

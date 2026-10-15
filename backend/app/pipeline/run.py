@@ -74,13 +74,13 @@ async def run_pipeline(inp: RunInput) -> AsyncIterator[dict[str, Any]]:
             await _run(inp, emit)
         except (LLMError, DesignError, repo.Conflict) as exc:
             repo.finish_run(inp.run_id, "failed", str(exc))
-            await emit("error", str(exc), kind=type(exc).__name__)
+            await emit("failed", str(exc), kind=type(exc).__name__)
         except asyncio.CancelledError:
             repo.finish_run(inp.run_id, "cancelled")
             raise
         except Exception as exc:  # noqa: BLE001
             repo.finish_run(inp.run_id, "failed", f"{type(exc).__name__}: {exc}")
-            await emit("error", f"Unexpected error: {exc}", kind=type(exc).__name__)
+            await emit("failed", f"Unexpected error: {exc}", kind=type(exc).__name__)
         finally:
             await queue.put(None)
 
@@ -103,7 +103,7 @@ async def _call_llm(inp: RunInput, request: LLMRequest, on_chunk=None, emit=None
     seconds = round(time.monotonic() - started, 1)
     log.info("llm %s %s: %.1fs", inp.llm_label, request.schema_name, seconds)
     if emit:
-        await emit("llm", f"{request.schema_name} answered in {seconds} s", seconds=seconds, kind=request.schema_name)
+        await emit("model_call", f"{request.schema_name} answered in {seconds} s", seconds=seconds, kind=request.schema_name)
     return result
 
 
@@ -112,21 +112,21 @@ async def _run(inp: RunInput, emit) -> None:
     design = Design.model_validate_json(base["design_json"]) if base else Design()
     guids: dict[str, str] = json.loads(base["guids_json"]) if base else {}
     mode = "edit" if base else "design"
-    await emit("build", "Reading the brief", mode=mode, model=inp.llm_label)
+    await emit("phase", "Understanding the request", mode=mode, model=inp.llm_label)
 
     req_raw = await _call_llm(inp, LLMRequest(REQUIREMENTS_SYSTEM, inp.prompt, "requirements", REQUIREMENTS_SCHEMA, meta={"prompt": inp.prompt}), emit=emit)
     checklist = [checks.normalise(r) for r in req_raw.get("requirements", [])]
-    await emit("requirements", f"{len(checklist)} requirements", items=checklist)
+    await emit("checklist", f"{len(checklist)} requirements", items=checklist)
 
     focus = _focus_text(inp, design, guids)
     if focus:
-        await emit("focus", f"Selected: {focus}", text=focus)
+        await emit("selected", f"Selected: {focus}", text=focus)
     previews = PreviewWorker(inp.project_id, inp.run_id, emit, guids)
     approach, feedback, applied_total = "", [], 0
     try:
         for rnd in range(config.MAX_REPAIR_ROUNDS + 1):
             if rnd:
-                await emit("build", f"Fix round {rnd}: {len(feedback)} issue(s) go back to the model")
+                await emit("phase", f"Fix round {rnd}: {len(feedback)} issue(s) go back to the model")
             chunks: asyncio.Queue[str] = asyncio.Queue()
             stream = StepStream(design, emit, previews.submit)
             request = LLMRequest(BUILD_SYSTEM, _user_prompt(inp.prompt, design, checklist, feedback, focus), "build", BUILD_SCHEMA,
@@ -141,13 +141,13 @@ async def _run(inp: RunInput, emit) -> None:
             await stream.feed_steps(result.get("steps", []))      # anything the stream missed (non-streaming providers)
             approach = result.get("approach") or approach
             if rnd == 0 and approach:
-                await emit("approach", approach, text=approach)
+                await emit("strategy", approach, text=approach)
             design = stream.design
             applied_total += stream.applied
             results = checks.check(design, checklist)
             feedback = [*stream.rejections, *checks.unmet(results), *checks.completeness(design)]
             tally = {k: sum(r["status"] == k for r in results) for k in ("met", "unmet", "unsupported", "not_checked")}
-            await emit("verify", f"{tally['met']} met, {tally['unmet']} unmet" + (f", {tally['not_checked']} not checked automatically" if tally["not_checked"] else "")
+            await emit("compare", f"{tally['met']} met, {tally['unmet']} unmet" + (f", {tally['not_checked']} not checked automatically" if tally["not_checked"] else "")
                        + (f", {tally['unsupported']} not buildable yet" if tally["unsupported"] else ""), items=results, tally=tally)
             if not feedback or (rnd and not stream.applied):
                 break
@@ -155,11 +155,11 @@ async def _run(inp: RunInput, emit) -> None:
         await previews.close()
 
     if not design.rooms or applied_total == 0:     # nothing changed: do not mint an identical version
-        raise LLMError("the model produced no applicable steps; " + (feedback[0] if feedback else "try describing the building again"))
+        raise LLMError("nothing in the model's answer could be applied; " + (feedback[0] if feedback else "try describing the building again"))
 
     spec = derive(design)
     results = checks.check(design, checklist)
-    await emit("compile", "Compiling IFC4")
+    await emit("packaging", "Compiling IFC4")
     loop = asyncio.get_running_loop()
     model, used = await loop.run_in_executor(COMPILE_POOL, compile_ifc, spec, design.model_dump_json(), guids)
     ifc_bytes = model.to_string().encode("utf-8")
@@ -172,5 +172,5 @@ async def _run(inp: RunInput, emit) -> None:
                                   design=design.model_dump(), spec=spec.model_dump(), guids=used, approach=approach, notes=notes, summary=summary,
                                   ifc_bytes=ifc_bytes, requirements=results)
     repo.finish_run(inp.run_id, "succeeded", result_version_id=version["id"])
-    await emit("done", summary, number=number, version_id=version["id"], elements=spec.element_count(),
+    await emit("finished", summary, number=number, version_id=version["id"], elements=spec.element_count(),
                ifc_url=f"/api/projects/{inp.project_id}/versions/{number}/ifc", notes=notes)

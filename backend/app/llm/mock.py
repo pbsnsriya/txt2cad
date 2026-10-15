@@ -54,7 +54,7 @@ def _pack(items: list[tuple[str, str, float]], y0: float, row_depth: float) -> l
 
 def build_steps(prompt: str) -> list[dict[str, Any]]:
     p = parse_prompt(prompt)
-    steps: list[dict[str, Any]] = [{"step": "building", "name": "Generated building", "why": "named from the brief"}]
+    steps: list[dict[str, Any]] = [{"step": "project", "name": "Generated building", "why": "named from the brief"}]
     ground = [("Hall", "hall", 10.0), *p["rooms"]] if p["rooms"] else [("Hall", "hall", 10.0), ("Living", "living", 20.0), ("Kitchen", "kitchen", 14.0)]
     upper: list[tuple[str, str, float]] = [(f"Bedroom {i + 1}", "bedroom", 13.0) for i in range(max(p["bedrooms"], 1 if p["storeys"] > 1 else 0))]
     if p["storeys"] == 1:
@@ -74,10 +74,10 @@ def layout_steps(per_level: list[list[tuple[str, str, float]]]) -> list[dict[str
     steps: list[dict[str, Any]] = []
     depth_front, depth_back = 4.5, 4.0
     for i, items in enumerate(per_level, 1):
-        steps.append({"step": "level", "id": f"L{i}", "name": "Ground floor" if i == 1 else f"Level {i}", "height": 3.0, "why": "storey stack"})
+        steps.append({"step": "storey", "id": f"L{i}", "name": "Ground floor" if i == 1 else f"Level {i}", "height": 3.0, "why": "storey stack"})
         mid = (len(items) + 1) // 2
         placed = _pack(items[:mid], 0.0, depth_front) + (_pack(items[mid:], depth_front, depth_back) if items[mid:] else [])
-        steps.append({"step": "layout", "level": f"L{i}", "rooms": placed, "why": "rooms packed edge to edge in two rows"})
+        steps.append({"step": "rearrange", "level": f"L{i}", "rooms": placed, "why": "rooms packed edge to edge in two rows"})
     for i in range(1, len(per_level)):
         steps.append({"step": "stair", "room": per_level[i - 1][0][0], "side": "W", "why": "stair against the hall wall, landing above"})
     steps += _openings(steps)

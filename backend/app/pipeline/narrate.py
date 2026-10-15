@@ -6,8 +6,8 @@ from ..domain.design import Design
 from ..domain.steps import Step, norm_level, norm_side
 
 SIDE_NAMES = {"N": "north", "S": "south", "E": "east", "W": "west"}
-PHASES = {"building": "Massing", "level": "Massing", "room": "Floor plates", "layout": "Floor plates", "door": "Circulation", "stair": "Circulation",
-          "window": "Envelope", "roof": "Envelope", "material": "Envelope", "remove": "Revisions", "note": "Notes"}
+PHASES = {"project": "Setup", "storey": "Setup", "room": "Rooms", "rearrange": "Rooms", "door": "Doors and stairs", "stair": "Doors and stairs",
+          "window": "Windows and roof", "roof": "Windows and roof", "material": "Windows and roof", "delete": "Changes", "remark": "Notes"}
 
 
 def phase_of(step: Step) -> str:
@@ -16,15 +16,15 @@ def phase_of(step: Step) -> str:
 
 def headline(step: Step, design: Design) -> str:
     k = step.step
-    if k == "building":
+    if k == "project":
         return f"Named the project '{design.name}'"
-    if k == "level":
+    if k == "storey":
         lv = design.level(norm_level(step.id) or "") or design.levels[-1]
         return f"{lv.name or lv.id} added, {lv.height:g} m floor to floor"
     if k == "room":
         r = design.rooms[-1] if design.rooms else None      # apply_step appends the room it just placed or replaced
         return f"{r.name} on {r.level}: {r.rect[2]:g} x {r.rect[3]:g} m, {r.rect[2] * r.rect[3]:.1f} m2" if r else f"Room {step.name}"
-    if k == "layout":
+    if k == "rearrange":
         n = len([r for r in design.rooms if r.level == norm_level(step.level)])
         return f"Laid out {n} rooms on {norm_level(step.level)}"
     if k == "door":
@@ -39,7 +39,7 @@ def headline(step: Step, design: Design) -> str:
         return "Flat roof over the top floor"
     if k == "material":
         return f"Exterior walls in {step.material}"
-    if k == "remove":
+    if k == "delete":
         return f"Removed {step.id}"
     return step.text or k
 

@@ -91,6 +91,8 @@ class _Builder:
     def create(self, cls: str, name: str, key: str, shape, predefined: str | None = None):
         e = ifcopenshell.api.root.create_entity(self.model, ifc_class=cls, predefined_type=predefined, name=name)
         self.reg(e, key)
+        if hasattr(e, "Tag"):
+            e.Tag = key.split(":", 1)[1]                    # the stable element id; Name is the human label
         e.Representation = shape
         ifcopenshell.api.geometry.edit_object_placement(self.model, product=e)
         return e
@@ -121,18 +123,18 @@ def compile_ifc(spec: BuildingSpec, design_json: str = "", guids: dict[str, str]
     for w in spec.walls:
         pts, _, _ = _wall_outline(w.start, w.end, w.thickness)
         z0 = spec.level_elevation(w.level)
-        wall = b.create("IfcWall", w.id, f"element:{w.id}", b.extrude(body, pts, z0, w.height, w.material if w.external else "plaster"), "STANDARD")
+        wall = b.create("IfcWall", w.label or w.id, f"element:{w.id}", b.extrude(body, pts, z0, w.height, w.material if w.external else "plaster"), "STANDARD")
         ifcopenshell.api.spatial.assign_container(m, products=[wall], relating_structure=storeys[w.level])
         walls[w.id] = wall
 
     for s in spec.slabs:
-        slab = b.create("IfcSlab", s.id, f"element:{s.id}", b.extrude(body, s.outline, s.z_top - s.thickness, s.thickness, "slab", s.holes), "FLOOR")
+        slab = b.create("IfcSlab", s.label or s.id, f"element:{s.id}", b.extrude(body, s.outline, s.z_top - s.thickness, s.thickness, "slab", s.holes), "FLOOR")
         ifcopenshell.api.spatial.assign_container(m, products=[slab], relating_structure=storeys[s.level])
     for st in spec.stairs:
-        stair = b.create("IfcStair", st.id, f"element:{st.id}", b.stair_shape(body, st), "STRAIGHT_RUN_STAIR")
+        stair = b.create("IfcStair", st.label or st.id, f"element:{st.id}", b.stair_shape(body, st), "STRAIGHT_RUN_STAIR")
         ifcopenshell.api.spatial.assign_container(m, products=[stair], relating_structure=storeys[st.level])
     for r in spec.roofs:
-        roof = b.create("IfcRoof", r.id, f"element:{r.id}", b.extrude(body, r.outline, r.z_bottom, r.thickness, "roof"), "FLAT_ROOF")
+        roof = b.create("IfcRoof", r.label or r.id, f"element:{r.id}", b.extrude(body, r.outline, r.z_bottom, r.thickness, "roof"), "FLAT_ROOF")
         ifcopenshell.api.spatial.assign_container(m, products=[roof], relating_structure=storeys[r.level])
 
     for o in spec.openings:
@@ -140,12 +142,12 @@ def compile_ifc(spec: BuildingSpec, design_json: str = "", guids: dict[str, str]
         _, u, n = _wall_outline(wall_spec.start, wall_spec.end, wall_spec.thickness)
         centre = (wall_spec.start[0] + u[0] * o.offset, wall_spec.start[1] + u[1] * o.offset)
         z0 = spec.level_elevation(o.level) + o.sill
-        cut = b.create("IfcOpeningElement", f"{o.id}-opening", f"opening:{o.id}",
+        cut = b.create("IfcOpeningElement", f"{o.label or o.id} (opening)", f"opening:{o.id}",
                        b.extrude(body, _box_on_wall(centre, u, n, o.width, wall_spec.thickness + 2 * OPENING_OVERCUT), z0, o.height, "plaster"))
         ifcopenshell.api.feature.add_feature(m, feature=cut, element=walls[o.host])
         thickness = DOOR_LEAF_THICKNESS if o.kind == "door" else WINDOW_FRAME_THICKNESS
         cls = "IfcDoor" if o.kind == "door" else "IfcWindow"
-        fill = b.create(cls, o.id, f"element:{o.id}", b.extrude(body, _box_on_wall(centre, u, n, o.width, thickness), z0, o.height, o.kind))
+        fill = b.create(cls, o.label or o.id, f"element:{o.id}", b.extrude(body, _box_on_wall(centre, u, n, o.width, thickness), z0, o.height, o.kind))
         fill.OverallWidth, fill.OverallHeight = o.width, o.height
         ifcopenshell.api.spatial.assign_container(m, products=[fill], relating_structure=storeys[o.level])
         ifcopenshell.api.feature.add_filling(m, opening=cut, element=fill)

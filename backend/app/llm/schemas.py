@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-STEP_KINDS = ["building", "level", "room", "layout", "door", "window", "stair", "roof", "material", "remove", "note"]
+STEP_KINDS = ["project", "storey", "room", "rearrange", "door", "window", "stair", "roof", "material", "delete", "remark"]
 REQUIREMENT_KINDS = ["storeys", "room", "feature", "area", "adjacent", "orientation", "window", "door", "material", "style", "other"]
 
 _step_props: dict[str, Any] = {

@@ -22,7 +22,7 @@ def build(*steps: dict) -> Design:
 
 
 TWO_STOREY = (
-    {"step": "level", "id": "L1", "height": 3}, {"step": "level", "id": "L2", "height": 3},
+    {"step": "storey", "id": "L1", "height": 3}, {"step": "storey", "id": "L2", "height": 3},
     {"step": "room", "level": "L1", "name": "Hall", "kind": "hall", "rect": [0, 0, 3, 5]},
     {"step": "room", "level": "L1", "name": "Living", "kind": "living", "rect": [3, 0, 5, 5]},
     {"step": "room", "level": "L2", "name": "Landing", "kind": "hall", "rect": [0, 0, 3, 5]},
@@ -47,7 +47,7 @@ def test_the_floor_above_gets_a_stairwell_hole_and_the_floor_below_does_not():
 
 
 def test_a_room_too_short_for_the_flight_says_what_it_needs():
-    d = build({"step": "level", "id": "L1"}, {"step": "level", "id": "L2"},
+    d = build({"step": "storey", "id": "L1"}, {"step": "storey", "id": "L2"},
               {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 3, 3]}, {"step": "room", "level": "L2", "name": "Landing", "rect": [0, 0, 3, 3]},
               {"step": "stair", "room": "Hall", "side": "W"})
     with pytest.raises(DesignError, match=r"needs 3\.90 m along the wall"):
@@ -57,14 +57,14 @@ def test_a_room_too_short_for_the_flight_says_what_it_needs():
 def test_a_stair_whose_top_has_no_room_above_is_rejected_with_the_range_to_cover():
     d = build(*TWO_STOREY[:5], {"step": "stair", "room": "Hall", "side": "E"})   # E side: x 1.85..2.85, but Landing covers 0..3 -> fine
     derive(d)
-    d = build({"step": "level", "id": "L1"}, {"step": "level", "id": "L2"}, {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 3, 5]},
+    d = build({"step": "storey", "id": "L1"}, {"step": "storey", "id": "L2"}, {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 3, 5]},
               {"step": "room", "level": "L2", "name": "Bed", "rect": [10, 0, 4, 5]}, {"step": "stair", "room": "Hall", "side": "W"})
     with pytest.raises(DesignError, match=r"land outside every room on L2.*x 0\.15\.\.1\.15"):
         derive(d)
 
 
 def test_stair_on_the_top_level_is_an_error():
-    d = build({"step": "level", "id": "L1"}, {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 3, 5]}, {"step": "stair", "room": "Hall", "side": "W"})
+    d = build({"step": "storey", "id": "L1"}, {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 3, 5]}, {"step": "stair", "room": "Hall", "side": "W"})
     with pytest.raises(DesignError, match="no level above"):
         derive(d)
 
@@ -77,7 +77,7 @@ def test_completeness_asks_for_a_stair_between_levels():
 
 def test_moving_the_landing_away_drops_the_stair_instead_of_failing_the_edit():
     d = build(*TWO_STOREY, {"step": "stair", "room": "Hall", "side": "W"})
-    d = apply_step(d, Step(step="remove", id="landing"))
+    d = apply_step(d, Step(step="delete", id="landing"))
     d = apply_step(d, Step(step="room", level="L2", name="Landing", kind="hall", rect=[20, 0, 3, 5]))
     pruned, removed = prune_invalid_openings(d)
     assert not pruned.stairs and "stair" in removed[0]
@@ -85,7 +85,7 @@ def test_moving_the_landing_away_drops_the_stair_instead_of_failing_the_edit():
 
 def test_removing_a_room_removes_its_stair():
     d = build(*TWO_STOREY, {"step": "stair", "room": "Hall", "side": "W"})
-    assert not apply_step(d, Step(step="remove", id="hall")).stairs
+    assert not apply_step(d, Step(step="delete", id="hall")).stairs
 
 
 def test_ifc_has_a_stair_whose_geometry_climbs_one_storey_and_a_slab_with_a_void():
@@ -98,7 +98,7 @@ def test_ifc_has_a_stair_whose_geometry_climbs_one_storey_and_a_slab_with_a_void
     v = np.array(ifcopenshell.geom.create_shape(settings, stairs[0]).geometry.verts).reshape(-1, 3)
     assert v[:, 2].min() == pytest.approx(0, abs=1e-6) and v[:, 2].max() == pytest.approx(15 * 0.1875, abs=1e-6)   # top tread; the 16th riser lifts onto the floor above
     assert np.ptp(v[:, 1]) == pytest.approx(3.9, abs=1e-6) and np.ptp(v[:, 0]) == pytest.approx(1.0, abs=1e-6)  # along y, 1 m wide
-    slab = next(s for s in model.by_type("IfcSlab") if s.Name == "L2-slab-1")
+    slab = next(s for s in model.by_type("IfcSlab") if s.Tag == "floor.L2.1")
     prof = slab.Representation.Representations[0].Items[0].SweptArea
     assert prof.is_a("IfcArbitraryProfileDefWithVoids") and len(prof.InnerCurves) == 1
     sv = np.array(ifcopenshell.geom.create_shape(settings, slab).geometry.verts).reshape(-1, 3)
@@ -106,7 +106,7 @@ def test_ifc_has_a_stair_whose_geometry_climbs_one_storey_and_a_slab_with_a_void
 
 
 def test_a_stair_running_along_x_rises_in_the_right_direction():
-    d = build({"step": "level", "id": "L1"}, {"step": "level", "id": "L2"},
+    d = build({"step": "storey", "id": "L1"}, {"step": "storey", "id": "L2"},
               {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 6, 3]}, {"step": "room", "level": "L2", "name": "Landing", "rect": [0, 0, 6, 3]},
               {"step": "stair", "room": "Hall", "side": "N"})
     spec = derive(d)

@@ -13,7 +13,7 @@ def build(*steps: dict) -> Design:
 
 
 TWO_ROOMS = (
-    {"step": "level", "id": "L1", "height": 3},
+    {"step": "storey", "id": "L1", "height": 3},
     {"step": "room", "level": "L1", "name": "Kitchen", "kind": "kitchen", "rect": [0, 0, 4, 4]},
     {"step": "room", "level": "L1", "name": "Living", "kind": "living", "rect": [4, 0, 5, 4]},
 )
@@ -21,7 +21,7 @@ TWO_ROOMS = (
 
 def test_levels_must_be_added_in_order():
     with pytest.raises(StepError, match="next level id is L1"):
-        build({"step": "level", "id": "L3"})
+        build({"step": "storey", "id": "L3"})
 
 
 def test_room_needs_a_level_first():
@@ -35,7 +35,7 @@ def test_overlap_is_rejected_with_the_neighbour_named():
 
 
 def test_lenient_inputs_are_normalised():
-    d = build({"step": "level", "id": 1}, {"step": "room", "level": 1, "name": "Hall", "rect": {"x": 0, "y": 0, "w": 3, "d": 3}},
+    d = build({"step": "storey", "id": 1}, {"step": "room", "level": 1, "name": "Hall", "rect": {"x": 0, "y": 0, "w": 3, "d": 3}},
               {"step": "window", "room": "Hall", "side": "north"})
     assert d.rooms[0].rect == (0, 0, 3, 3) and d.windows[0].side == "N"
 
@@ -49,7 +49,7 @@ def test_shared_edge_becomes_one_partition_and_rest_is_exterior():
     d = build(*TWO_ROOMS)
     pieces = wall_pieces(d)
     partitions = [p for p in pieces if p.other]
-    assert len(partitions) == 1 and partitions[0].id == "L1-wall-kitchen+living" and partitions[0].length == pytest.approx(4)
+    assert len(partitions) == 1 and partitions[0].id == "wall.L1.kitchen~living" and partitions[0].length == pytest.approx(4)
     assert exterior_sides(d)["kitchen"] == {"N", "S", "W"}
     assert exterior_sides(d)["living"] == {"N", "S", "E"}
 
@@ -58,8 +58,8 @@ def test_door_between_rooms_sits_on_the_partition_and_windows_avoid_it():
     d = build(*TWO_ROOMS, {"step": "door", "room": "kitchen", "to": "living", "at": 0.5},
               {"step": "window", "room": "kitchen", "side": "S"}, {"step": "door", "room": "living", "side": "S"})
     spec = derive(d)
-    door = next(o for o in spec.openings if o.id.startswith("door-kitchen"))
-    assert door.host == "L1-wall-kitchen+living" and door.offset == pytest.approx(2.0)
+    door = next(o for o in spec.openings if o.id.startswith("door.kitchen"))
+    assert door.host == "wall.L1.kitchen~living" and door.offset == pytest.approx(2.0)
     assert len(spec.openings) == 3 and len(spec.walls) == 7
 
 
@@ -85,7 +85,7 @@ def test_door_between_rooms_that_do_not_touch_is_an_error():
 
 
 def test_stacked_levels_get_elevations_slabs_and_one_roof_over_the_top():
-    d = build(*TWO_ROOMS, {"step": "level", "id": "L2", "height": 2.8},
+    d = build(*TWO_ROOMS, {"step": "storey", "id": "L2", "height": 2.8},
               {"step": "room", "level": "L2", "name": "Bed", "rect": [0, 0, 9, 4]})
     spec = derive(d)
     assert [lv.elevation for lv in spec.levels] == [0.0, 3.0]
@@ -94,36 +94,36 @@ def test_stacked_levels_get_elevations_slabs_and_one_roof_over_the_top():
 
 
 def test_a_lower_wing_gets_its_own_roof():
-    d = build(*TWO_ROOMS, {"step": "level", "id": "L2"}, {"step": "room", "level": "L2", "name": "Bed", "rect": [0, 0, 4, 4]})
+    d = build(*TWO_ROOMS, {"step": "storey", "id": "L2"}, {"step": "room", "level": "L2", "name": "Bed", "rect": [0, 0, 4, 4]})
     roofs = {r.level for r in derive(d).roofs}
     assert roofs == {"L1", "L2"}
 
 
 def test_remove_room_cascades_to_its_openings():
     d = build(*TWO_ROOMS, {"step": "door", "room": "kitchen", "to": "living"}, {"step": "window", "room": "kitchen", "side": "S"},
-              {"step": "remove", "id": "kitchen"})
+              {"step": "delete", "id": "kitchen"})
     assert not d.doors and not d.windows and [r.id for r in d.rooms] == ["living"]
 
 
 def test_layout_step_replaces_a_storeys_rooms_but_keeps_ids():
-    d = build(*TWO_ROOMS, {"step": "layout", "level": "L1", "rooms": [
+    d = build(*TWO_ROOMS, {"step": "rearrange", "level": "L1", "rooms": [
         {"name": "Kitchen", "kind": "kitchen", "rect": [0, 0, 5, 4]}, {"name": "Living", "kind": "living", "rect": [5, 0, 4, 4]}]})
     assert {r.id: r.rect for r in d.rooms} == {"kitchen": (0, 0, 5, 4), "living": (5, 0, 4, 4)}
 
 
 def test_missing_level_defaults_to_the_newest_one():
-    d = build({"step": "level", "id": "L1"}, {"step": "room", "name": "Hall", "rect": [0, 0, 3, 3]},
-              {"step": "layout", "rooms": [{"name": "Hall", "rect": [0, 0, 3, 3]}, {"name": "Study", "rect": [3, 0, 3, 3]}]})
+    d = build({"step": "storey", "id": "L1"}, {"step": "room", "name": "Hall", "rect": [0, 0, 3, 3]},
+              {"step": "rearrange", "rooms": [{"name": "Hall", "rect": [0, 0, 3, 3]}, {"name": "Study", "rect": [3, 0, 3, 3]}]})
     assert [r.level for r in d.rooms] == ["L1", "L1"]
 
 
 def test_room_name_may_arrive_in_the_room_field():
-    d = build({"step": "level", "id": "L1"}, {"step": "room", "room": "Kitchen", "kind": "kitchen", "rect": [0, 0, 3, 3]})
+    d = build({"step": "storey", "id": "L1"}, {"step": "room", "room": "Kitchen", "kind": "kitchen", "rect": [0, 0, 3, 3]})
     assert d.rooms[0].name == "Kitchen" and d.rooms[0].id == "kitchen"
 
 
 def test_room_without_a_name_gets_one_from_its_kind():
-    d = build({"step": "level", "id": "L1"}, {"step": "room", "kind": "bedroom", "rect": [0, 0, 3, 3]}, {"step": "room", "kind": "bedroom", "rect": [3, 0, 3, 3]})
+    d = build({"step": "storey", "id": "L1"}, {"step": "room", "kind": "bedroom", "rect": [0, 0, 3, 3]}, {"step": "room", "kind": "bedroom", "rect": [3, 0, 3, 3]})
     assert [r.name for r in d.rooms] == ["Bedroom", "Bedroom 2"]
 
 
@@ -137,7 +137,7 @@ def test_completeness_flags_missing_windows_and_unlinked_rooms():
 
 
 def test_rooms_can_be_named_the_way_models_write_them():
-    d = build({"step": "level", "id": "L1"}, {"step": "level", "id": "L2"},
+    d = build({"step": "storey", "id": "L1"}, {"step": "storey", "id": "L2"},
               {"step": "room", "level": "L1", "name": "Living", "kind": "living", "rect": [0, 0, 5, 4]},
               {"step": "room", "level": "L1", "name": "Hall", "kind": "hall", "rect": [5, 0, 3, 4]},
               {"step": "room", "level": "L2", "name": "Hall", "kind": "hall", "rect": [0, 0, 8, 4]},
@@ -148,7 +148,7 @@ def test_rooms_can_be_named_the_way_models_write_them():
 
 
 def test_ambiguous_room_name_asks_for_an_id():
-    d = build({"step": "level", "id": "L1"}, {"step": "level", "id": "L2"},
+    d = build({"step": "storey", "id": "L1"}, {"step": "storey", "id": "L2"},
               {"step": "room", "level": "L1", "name": "Hall", "rect": [0, 0, 4, 4]}, {"step": "room", "level": "L2", "name": "Hall", "rect": [0, 0, 4, 4]})
     with pytest.raises(StepError, match=r"matches several rooms \(hall, hall-2\)"):
         apply_step(d, Step(step="window", room="Hall room", side="N"))
@@ -161,7 +161,7 @@ def test_adding_a_room_beside_a_windowed_wall_drops_that_window_instead_of_faili
     with pytest.raises(DesignError, match="not an exterior wall"):
         derive(d2)
     pruned, removed = prune_invalid_openings(d2)
-    assert [w.side for w in pruned.windows] == ["S"] and len(removed) == 1 and "win-living-E" in removed[0]
+    assert [w.side for w in pruned.windows] == ["S"] and len(removed) == 1 and "window.living.E" in removed[0]
     assert derive(pruned).openings
 
 

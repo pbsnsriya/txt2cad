@@ -53,11 +53,12 @@ def init_db() -> None:
             c.executescript(SCHEMA.read_text(encoding="utf-8"))
         if not c.execute("select 1 from llm_profiles where owner_id = ?", (config.LOCAL_OWNER,)).fetchone():
             seed_profiles(c)
+        c.execute("update llm_profiles set name = 'Practice mode' where name = 'Offline mock'")     # databases made before the rename
 
 
 def seed_profiles(c: sqlite3.Connection) -> None:
     rows = [
-        ("Offline mock", "mock", "", "", "", 1, "{}"),
+        ("Practice mode", "mock", "", "", "", 1, "{}"),
         # reasoning_effort "low" cut Gemini 2.5 Flash from 25-48 s to about 11 s per build call with the same step quality
         ("Gemini", "openai_compat", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash", "GEMINI_API_KEY", 0,
          '{"reasoning_effort": "low"}'),

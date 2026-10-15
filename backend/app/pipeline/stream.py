@@ -21,7 +21,7 @@ from ..llm.partial_json import complete_steps, peek_draft
 from .narrate import facts, headline, phase_of
 
 COMPILE_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ifc-compile")
-STRUCTURAL = {"room", "layout", "level", "remove"}
+STRUCTURAL = {"room", "rearrange", "storey", "delete"}
 PREVIEW_DEBOUNCE_S = 0.15
 DRAFT_EVERY_S = 0.15
 
@@ -47,7 +47,7 @@ class StepStream:
         now = asyncio.get_running_loop().time()
         if draft and draft != self._last_draft and now - self._last_draft_at >= DRAFT_EVERY_S:
             self._last_draft, self._last_draft_at = draft, now
-            await self.emit("draft", f"Drafting {draft}", text=draft)
+            await self.emit("writing", f"Drafting {draft}", text=draft)
 
     async def feed_steps(self, steps: list[dict[str, Any]]) -> None:
         while self.seen < len(steps):
@@ -77,11 +77,11 @@ class StepStream:
         text = headline(step, candidate) + (f" ({len(pruned)} opening(s) no longer fit and were removed)" if pruned else "")
         if pruned:
             self.design = candidate.model_copy(update={"notes": [*candidate.notes, *pruned]})
-        await self.emit("step", text, index=index, ok=True, phase=phase_of(step), why=step.why, kind=step.step, facts=facts(candidate), removed=pruned)
+        await self.emit("move", text, index=index, ok=True, phase=phase_of(step), why=step.why, kind=step.step, facts=facts(candidate), removed=pruned)
 
     async def _reject(self, index: int, raw: dict[str, Any], message: str) -> None:
         self.rejections.append(f"step {index} ({raw.get('step', '?')}): {message}")
-        await self.emit("step", message, index=index, ok=False, kind=raw.get("step"), error=message)
+        await self.emit("move", message, index=index, ok=False, kind=raw.get("step"), error=message)
 
 
 class PreviewWorker:
@@ -113,9 +113,9 @@ class PreviewWorker:
                     n = self.count + 1
                     elements = await loop.run_in_executor(COMPILE_POOL, self._compile, design, n)
                     self.count = n
-                    await self.emit("partial", f"Preview {n}: {elements} elements", url=f"{self.url_base}/{n}.ifc", n=n, elements=elements)
+                    await self.emit("preview", f"Preview {n}: {elements} elements", url=f"{self.url_base}/{n}.ifc", n=n, elements=elements)
                 except Exception as exc:  # noqa: BLE001 - a failed preview must never kill the run
-                    await self.emit("partial_error", f"Preview skipped: {exc}")
+                    await self.emit("preview_skipped", f"Preview skipped: {exc}")
             if self._closing and self.latest is None:
                 return
 

@@ -55,7 +55,7 @@ def review(design: Design, spec: BuildingSpec) -> dict[str, Any]:
 
     for st in spec.stairs:
         ok = st.riser_height <= MAX_RISER_M + 1e-9 and st.going >= MIN_TREAD_M - 1e-9 and st.width >= MIN_STAIR_WIDTH_M - 1e-9
-        clauses.append(_clause(f"stair-{st.id}", f"Stair geometry: {st.id}", "IRC R311.7.1, R311.7.5", "pass" if ok else "fail",
+        clauses.append(_clause(f"{st.id}", f"Stair geometry: {st.id}", "IRC R311.7.1, R311.7.5", "pass" if ok else "fail",
                                f"riser {st.riser_height * 1000:.0f} mm, tread {st.going * 1000:.0f} mm, width {st.width * 1000:.0f} mm",
                                f"riser <= {MAX_RISER_M * 1000:.0f}, tread >= {MIN_TREAD_M * 1000:.0f}, width >= {MIN_STAIR_WIDTH_M * 1000:.0f} mm", [st.id],
                                "" if ok else "Use a wider stair or a taller storey split."))

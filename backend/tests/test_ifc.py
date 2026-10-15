@@ -11,7 +11,7 @@ from app.ifc.compile import compile_ifc
 def sample() -> Design:
     d = Design(name="Test house")
     for s in (
-        {"step": "level", "id": "L1", "height": 3}, {"step": "level", "id": "L2", "height": 2.8},
+        {"step": "storey", "id": "L1", "height": 3}, {"step": "storey", "id": "L2", "height": 2.8},
         {"step": "room", "level": "L1", "name": "Kitchen", "kind": "kitchen", "rect": [0, 0, 4, 4]},
         {"step": "room", "level": "L1", "name": "Living", "kind": "living", "rect": [4, 0, 5, 4]},
         {"step": "room", "level": "L2", "name": "Bed", "kind": "bedroom", "rect": [0, 0, 9, 4]},
@@ -61,8 +61,18 @@ def test_globalids_survive_an_unrelated_edit():
 def test_openings_actually_cut_the_wall():
     model, _ = compile_ifc(derive(sample()), "", None)
     settings = ifcopenshell.geom.settings()
-    wall = next(w for w in model.by_type("IfcWall") if w.Name == "L1-wall-kitchen+living")
+    wall = next(w for w in model.by_type("IfcWall") if w.Tag == "wall.L1.kitchen~living")
     shape = ifcopenshell.geom.create_shape(settings, wall)
     verts = np.array(shape.geometry.verts).reshape(-1, 3)
     # the door cut leaves faces at the door jamb: a plain box would only have 8 vertices
     assert len(verts) > 8
+
+
+def test_ifc_names_are_human_labels_and_the_tag_keeps_the_stable_id():
+    model, guids = compile_ifc(derive(sample()), "", None)
+    wall = next(w for w in model.by_type("IfcWall") if w.Tag == "wall.L1.kitchen~living")
+    assert wall.Name == "Wall between Kitchen and Living"
+    assert {w.Name for w in model.by_type("IfcWall")} >= {"Kitchen: south wall", "Bed: north wall"}
+    assert {d.Name for d in model.by_type("IfcDoor")} == {"Door: Kitchen to Living", "Door: Living to outside"}
+    assert any(s.Name == "Level 2 floor" for s in model.by_type("IfcSlab")) and any(r.Name == "Level 2 roof" for r in model.by_type("IfcRoof"))
+    assert "element:wall.L1.kitchen~living" in guids

@@ -67,8 +67,8 @@ def test_peek_draft_names_the_open_step():
 def test_extract_json_tolerates_prose_and_fences_and_truncation():
     assert extract_json('Sure! Here you go: {"steps": []} thanks') == {"steps": []}
     assert extract_json('```json\n{"a": 1}\n```') == {"a": 1}
-    truncated = '{"steps": [{"step": "level", "id": "L1"}, {"step": "room", "na'
-    assert extract_json(truncated) == {"steps": [{"step": "level", "id": "L1"}]}
+    truncated = '{"steps": [{"step": "storey", "id": "L1"}, {"step": "room", "na'
+    assert extract_json(truncated) == {"steps": [{"step": "storey", "id": "L1"}]}
     with pytest.raises(LLMError):
         extract_json("no json here")
 

@@ -28,6 +28,7 @@ MIN_ROOF_AREA = 0.5
 HEADROOM_ABOVE_DOOR = 0.30
 GARAGE_DOOR_WIDTH = 2.4
 SIDE_PREFERENCE: tuple[Side, ...] = ("S", "E", "W", "N")
+SIDE_NAMES = {"N": "north", "S": "south", "E": "east", "W": "west"}
 MAX_RISER_M = 0.19             # IRC allows 7 3/4 in (0.197 m); stay just under
 GOING_M = 0.26                 # IRC minimum tread is 10 in (0.254 m)
 STAIR_WALL_CLEARANCE = 0.15    # a flight sits against the wall's inner face
@@ -111,9 +112,9 @@ def wall_pieces(design: Design) -> list[Piece]:
                         continue
                     covered.append(span)
                     if room.id < other.id and span[1] - span[0] >= MIN_PIECE_LENGTH:
-                        pieces.append(_piece(make_id(f"{lv.id}-wall-{room.id}+{other.id}"), lv.id, room.id, other.id, side, fixed, span, along_x))
+                        pieces.append(_piece(make_id(f"wall.{lv.id}.{room.id}~{other.id}"), lv.id, room.id, other.id, side, fixed, span, along_x))
                 for a, b in _interval_subtract((lo, hi), covered):
-                    pieces.append(_piece(make_id(f"{lv.id}-wall-{room.id}-{side}"), lv.id, room.id, None, side, fixed, (a, b), along_x))
+                    pieces.append(_piece(make_id(f"wall.{lv.id}.{room.id}.{side}"), lv.id, room.id, None, side, fixed, (a, b), along_x))
     return pieces
 
 
@@ -137,9 +138,11 @@ def derive(design: Design) -> BuildingSpec:
     for lv in design.levels:
         spec.levels.append(LevelSpec(id=lv.id, name=lv.name or lv.id, elevation=elevation, height=lv.height))
         elevation += lv.height
+    names = {r.id: r.name for r in design.rooms}
     for p in pieces:
         lv = next(x for x in spec.levels if x.id == p.level)
-        spec.walls.append(WallSpec(id=p.id, level=p.level, start=p.start, end=p.end, height=lv.height,
+        label = (f"{names[p.room]}: {SIDE_NAMES[p.side]} wall" if p.other is None else f"Wall between {names[p.room]} and {names[p.other]}")
+        spec.walls.append(WallSpec(id=p.id, label=label, level=p.level, start=p.start, end=p.end, height=lv.height,
                                    thickness=EXTERIOR_THICKNESS if p.other is None else PARTITION_THICKNESS,
                                    external=p.other is None, material=design.wall_material if p.other is None else "plaster"))
     _stairs(design, spec)             # before slabs: each flight cuts a well in the floor above
@@ -171,7 +174,7 @@ def _slabs_and_roofs(design: Design, spec: BuildingSpec) -> None:
         if wells:
             slab_area = slab_area.difference(unary_union(wells))
         for n, poly in enumerate(_polys(slab_area), 1):
-            spec.slabs.append(SlabSpec(id=f"{lv.id}-slab-{n}", level=lv.id, outline=list(poly.exterior.coords)[:-1],
+            spec.slabs.append(SlabSpec(id=f"floor.{lv.id}.{n}", label=f"{lv.name or lv.id} floor", level=lv.id, outline=list(poly.exterior.coords)[:-1],
                                        holes=[list(r.coords)[:-1] for r in poly.interiors],
                                        thickness=SLAB_THICKNESS, z_top=spec.level_elevation(lv.id)))
         roofed = unary_union([_room_box(r) for r in rooms if r.roofed])
@@ -179,7 +182,7 @@ def _slabs_and_roofs(design: Design, spec: BuildingSpec) -> None:
         exposed = roofed.difference(above)
         z = spec.level_elevation(lv.id) + lv.height
         for n, poly in enumerate([p for p in _polys(exposed.buffer(half, join_style=2)) if p.area >= MIN_ROOF_AREA], 1):
-            spec.roofs.append(RoofSpec(id=f"{lv.id}-roof-{n}", level=lv.id, outline=list(poly.exterior.coords)[:-1],
+            spec.roofs.append(RoofSpec(id=f"roof.{lv.id}.{n}", label=f"{lv.name or lv.id} roof", level=lv.id, outline=list(poly.exterior.coords)[:-1],
                                        thickness=SLAB_THICKNESS, z_bottom=z))
 
 
@@ -215,7 +218,7 @@ def _stairs(design: Design, spec: BuildingSpec) -> None:
         if not above.buffer(EPS).contains(rect):
             raise DesignError(f"stair '{st.id}': its top would land outside every room on {to_level}. Put a hall or landing on {to_level} that covers "
                               f"x {rect.bounds[0]:.2f}..{rect.bounds[2]:.2f}, y {rect.bounds[1]:.2f}..{rect.bounds[3]:.2f}", st.id)
-        spec.stairs.append(StairSpec(id=st.id, level=room.level, to_level=to_level, outline=list(rect.exterior.coords)[:-1], start=start,
+        spec.stairs.append(StairSpec(id=st.id, label=f"Stair in {room.name}", level=room.level, to_level=to_level, outline=list(rect.exterior.coords)[:-1], start=start,
                                      direction=direction, width=st.width, risers=risers, riser_height=round(rise / risers, 4), going=GOING_M,
                                      length=length, z0=spec.level_elevation(room.level)))
 
@@ -225,7 +228,7 @@ def _spaces(design: Design, spec: BuildingSpec) -> None:
         inner = _room_box(r).buffer(-SPACE_INSET, join_style=2)
         if inner.is_empty:
             continue
-        spec.spaces.append(SpaceSpec(id=f"{r.level}-space-{r.id}", name=r.name, level=r.level, kind=r.kind,
+        spec.spaces.append(SpaceSpec(id=f"room.{r.level}.{r.id}", name=r.name, level=r.level, kind=r.kind,
                                      outline=list(inner.exterior.coords)[:-1], area=round(inner.area, 2)))
 
 
@@ -248,13 +251,13 @@ def _openings(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
     by_id = {p.id: p for p in pieces}
     taken: dict[str, list[tuple[float, float]]] = {}
 
-    def place(candidates: list[Piece], at: float, width: float, height: float, sill: float, oid: str, kind: str, style: str, what: str) -> None:
+    def place(candidates: list[Piece], at: float, width: float, height: float, sill: float, oid: str, kind: str, style: str, what: str, label: str) -> None:
         for p in candidates:
             centre = _free_centre(p.length, width, at * p.length, taken.get(p.id, []))
             if centre is None:
                 continue
             taken.setdefault(p.id, []).append((centre - width / 2, centre + width / 2))
-            spec.openings.append(OpeningSpec(id=oid, kind=kind, host=p.id, offset=round(centre, 3), width=width, height=height,  # type: ignore[arg-type]
+            spec.openings.append(OpeningSpec(id=oid, label=label, kind=kind, host=p.id, offset=round(centre, 3), width=width, height=height,  # type: ignore[arg-type]
                                              sill=sill, style=style, level=p.level))
             return
         raise DesignError(f"{what}: no free space for a {width} m opening on the chosen wall; make the wall longer, use a narrower opening or another side", oid)
@@ -275,7 +278,8 @@ def _openings(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
             cands.sort(key=lambda p: -p.length)
             if not cands:
                 raise DesignError(f"door '{door.id}': '{room.name}' and '{door.to}' do not share a wall; use a room they both touch or 'outside'", door.id)
-        place(cands, door.at, width, height, 0.0, door.id, "door", door.kind, f"door '{door.id}'")
+        place(cands, door.at, width, height, 0.0, door.id, "door", door.kind, f"door '{door.id}'",
+              f"Door: {room.name} to " + ("outside" if door.to == "outside" else (design.room(door.to).name if design.room(door.to) else door.to)))
 
     for win in design.windows:
         room = design.room(win.room)
@@ -287,7 +291,7 @@ def _openings(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
             raise DesignError(f"window '{win.id}': the {win.side} wall of '{room.name}' is not an exterior wall; exterior sides are {', '.join(sides) or 'none'}", win.id)
         cands.sort(key=lambda p: -p.length)
         height = min(win.height, level_h - win.sill - HEADROOM_ABOVE_DOOR)
-        place(cands, win.at, win.width, height, win.sill, win.id, "window", win.kind, f"window '{win.id}'")
+        place(cands, win.at, win.width, height, win.sill, win.id, "window", win.kind, f"window '{win.id}'", f"Window: {room.name}, {SIDE_NAMES[win.side]} wall")
     assert all(o.host in by_id for o in spec.openings)
 
 

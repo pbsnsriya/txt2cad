@@ -44,17 +44,17 @@ def describe_focus(design: Design, element_id: str) -> str | None:
         if st.id == element_id:
             return f"the stair {st.id} in {_name(design, st.room)}"
     for r in design.rooms:
-        if element_id == f"{r.level}-space-{r.id}":
+        if element_id == f"room.{r.level}.{r.id}":
             return f"the room {r.id} '{r.name}' ({r.kind}) on {r.level}, rect {list(r.rect)}"
     for p in wall_pieces(design):
         if p.id == element_id:
             if p.other is None:
                 return f"the {SIDE_WORDS[p.side]} exterior wall {p.id} of {_name(design, p.room)} on {p.level}"
             return f"the partition wall {p.id} between {_name(design, p.room)} and {_name(design, p.other)} on {p.level}"
-    if "-slab-" in element_id:
-        return f"the floor slab {element_id} of {element_id.split('-slab-')[0]}"
-    if "-roof-" in element_id:
-        return f"the roof {element_id} over {element_id.split('-roof-')[0]}"
+    if element_id.startswith("floor."):
+        return f"the floor slab {element_id} of {element_id.split('.')[1]}"
+    if element_id.startswith("roof."):
+        return f"the roof {element_id} over {element_id.split('.')[1]}"
     return None
 
 
