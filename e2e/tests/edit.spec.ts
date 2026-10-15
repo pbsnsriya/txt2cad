@@ -1,4 +1,4 @@
-import { API, build, composer, expect, projects, resetProjects, test } from './helpers';
+import { API, build, composer, expect, openProjectByName, projects, resetProjects, test } from './helpers';
 
 test.beforeEach(({ request }) => resetProjects(request));
 
@@ -6,7 +6,7 @@ test('F02-E1 an edit the offline model cannot do is reported and keeps version 1
   await build(page);
   await composer(page).fill('add a basement');
   await composer(page).press('Enter');
-  await expect(page.getByRole('alert').filter({ hasText: /no applicable steps/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('alert').filter({ hasText: /could be applied/i })).toBeVisible({ timeout: 30_000 });
   const [project] = await projects(request);
   const detail = await (await request.get(`${API}/api/projects/${project.id}`)).json();
   expect(detail.head.number).toBe(1);

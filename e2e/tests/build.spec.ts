@@ -1,10 +1,10 @@
-import { API, build, CABIN, composer, expect, HOUSE, projects, resetProjects, test } from './helpers';
+import { API, build, CABIN, composer, expect, HOUSE, openProjectByName, projects, resetProjects, test } from './helpers';
 
 test.beforeEach(({ request }) => resetProjects(request));
 
 test('F01-H1 a sentence becomes a checked, valid building', async ({ page, request }) => {
   await build(page);
-  for (const phase of ['Massing', 'Floor plates', 'Circulation', 'Envelope']) await expect(page.getByText(phase, { exact: true }).first()).toBeVisible();
+  for (const phase of ['Setup', 'Rooms', 'Doors and stairs', 'Windows and roof']) await expect(page.getByText(phase, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/\d+ met, 0 unmet/)).toBeVisible();
   await expect(page.locator('canvas')).toHaveCount(1);
   const [project] = await projects(request);
@@ -46,7 +46,7 @@ test.describe('F01-E2 a prompt over the length limit', () => {
 test('F01-E3 emoji and accents survive the whole round trip', async ({ page }) => {
   const prompt = 'Casa de dos pisos con cocina 🏠, baño y tres dormitorios (café-bar), garaje';
   await build(page, prompt);
-  await expect(page.getByText('You asked:').locator('..')).toContainText('🏠');
+  await expect(page.getByText('Your request:', { exact: true }).locator('..')).toContainText('🏠');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Casa de dos pisos');
 });
 
@@ -63,13 +63,13 @@ test('F01-E5 reloading mid-run cancels that run cleanly and the session can simp
   await page.goto('/');
   await composer(page).fill(HOUSE);
   await composer(page).press('Enter');
-  await expect(page.getByText('Reading the brief')).toBeVisible();
+  await expect(page.getByText('Understanding the request')).toBeVisible();
   await page.reload();                                                    // closes the stream; the server stops the run
-  await expect(page.getByRole('navigation', { name: 'Sessions' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Projects' })).toBeVisible();
   const [project] = await projects(request);
   expect(project.head_version_id).toBeNull();                              // nothing half-saved
-  await page.getByRole('navigation', { name: 'Sessions' }).getByRole('button', { name: /Two storey house/ }).first().click();
-  await expect(page.getByText('Describe what to build below.')).toBeVisible();
+  await openProjectByName(page, /Two storey house/);
+  await expect(page.getByText('Say what to build in the box below.')).toBeVisible();
   await composer(page).fill(CABIN);
   await composer(page).press('Enter');
   await expect(page.getByText(/Version 1:/).first()).toBeVisible({ timeout: 60_000 });
@@ -80,7 +80,7 @@ test.describe('F01-E6 backend unreachable', () => {
   test('says so and does not let the user type into the void', async ({ page }) => {
     await page.route('http://127.0.0.1:8771/**', (r) => r.abort());     // the backend only; not the app's own src/api modules
     await page.goto('/');
-    await expect(page.getByText('Offline')).toBeVisible();
+    await expect(page.getByText('Server offline')).toBeVisible();
     await expect(composer(page)).toBeDisabled();
     await expect(page.getByRole('alert')).toContainText(/Cannot reach the backend/);
   });
@@ -96,9 +96,9 @@ test.describe('F01-E7 phone width and keyboard only', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByText(/Version 1:/).first()).toBeVisible({ timeout: 60_000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
-    await page.getByRole('button', { name: 'Other export formats' }).focus();
+    await page.getByRole('button', { name: 'Export' }).focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('menuitem', { name: /CAD plans/ }).focus();
+    await page.getByRole('menuitem', { name: /Floor plans \(\.dxf\)/ }).focus();
     const download = page.waitForEvent('download');
     await page.keyboard.press('Enter');
     expect((await download).suggestedFilename()).toMatch(/\.dxf$/);

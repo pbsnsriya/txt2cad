@@ -4,7 +4,7 @@ import { API, build, composer, expect, HOUSE, projects, resetProjects, test } fr
 test.beforeEach(({ request }) => resetProjects(request));
 
 async function pickGemini(page: import('@playwright/test').Page) {
-  await page.getByRole('button', { name: /Offline mock/ }).click();
+  await page.getByRole('button', { name: /Practice mode/ }).click();
   await page.getByRole('menuitem', { name: /Gemini/ }).click();
 }
 

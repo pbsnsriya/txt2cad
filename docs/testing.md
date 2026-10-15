@@ -6,9 +6,9 @@ Layers:
 
 | Layer | Tool | Where |
 | --- | --- | --- |
-| Domain, geometry, exports, pipeline, API | pytest, offline mock model, no network | `backend/tests` |
+| Domain, geometry, exports, pipeline, API | pytest, practice model, no network | `backend/tests` |
 | Run state, SSE reader | Vitest | `frontend/src/**/*.test.ts` |
-| Whole app in a browser | Playwright, isolated backend and database, offline mock model | `e2e/` |
+| Whole app in a browser | Playwright, isolated backend and database, practice model | `e2e/` |
 | Real model | Playwright `@live` tests, Gemini, only with `E2E_LIVE=1` | `e2e/tests/live.spec.ts` |
 
 Run the browser tests: `cd e2e && npm install && npm test`. Set `E2E_PYTHON` to the backend's Python if it is not `python`.
@@ -45,7 +45,7 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 | F03-H1 | happy | Click the model | Element highlighted, name shown, composer says what the message is about | e2e |
 | F03-H2 | happy | Send a message with a selection | The request carries the element's GlobalId | e2e |
 | F03-E1 | edge | Drag to orbit | Nothing is selected | e2e |
-| F03-E2 | edge | Clear selection | Highlight and chip go away | e2e |
+| F03-E2 | edge | Unpick | Highlight and chip go away | e2e |
 
 ## F04 Versions
 
@@ -66,18 +66,18 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 
 | Case | Type | Steps | Expected | Auto |
 | --- | --- | --- | --- | --- |
-| F06-H1 | happy | Drawings | Plans of every level load | e2e |
+| F06-H1 | happy | Plans tab | Plans of every level load | e2e |
 | F06-H2 | happy | Design check, "Show in model" | Disclaimer visible, clauses with sections, returns to 3D with the elements highlighted | e2e |
 | F06-H3 | happy | Quantities, type a rate | Cost and total fill in | e2e |
 | F06-E1 | edge | Tabs before anything is built | Disabled with a reason | e2e |
 | F06-E2 | edge | Switch tabs back and forth | The 3D viewer is not torn down | e2e |
 
-## F07 Sessions
+## F07 Projects
 
 | Case | Type | Steps | Expected | Auto |
 | --- | --- | --- | --- | --- |
-| F07-H1 | happy | New session, reopen from the list, reload | Right session and model each time | e2e |
-| F07-H2 | happy | Delete a session | Confirm dialog focuses Cancel; Escape cancels; confirm removes it | e2e |
+| F07-H1 | happy | New project, reopen from the Projects sheet, reload | Right project and model each time | e2e |
+| F07-H2 | happy | Delete a project | Confirm dialog focuses Cancel; Escape cancels; confirm removes it | e2e |
 
 ## F08 Look and feel
 

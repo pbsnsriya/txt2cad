@@ -40,10 +40,10 @@ that one derived description, so the 3D model and the plans always agree to the 
 | **Talk to it** | Follow-up prompts edit the building. Click an element in the 3D view and the next message is about *that* element. |
 | **Versions** | Every prompt makes a version. Open any of them, restore one (history is never deleted), download any of them. |
 | **Exports** | IFC4 for BIM tools, DXF floor plans (named layers, metres, door swings, dimensions, stair symbols), an SVG of the plans, and JSON of the design and geometry. |
-| **Drawings tab** | The floor plans of every level, drawn from the same document as the DXF download. |
+| **Plans tab** | The floor plans of every level, drawn from the same document as the DXF download. |
 | **Design check tab** | An indicative check against a few dwelling rules (exits, stair geometry, ceiling height, daylight, bedroom escape windows) with "show in model". It is labelled as indicative and is not a compliance report. |
 | **Quantities tab** | Areas, volumes and counts straight from the geometry. It ships no prices; type your own rate per unit and the cost fills in. |
-| **Section cut, camera views, light and dark themes** | Cut the model at any height, jump to top/front/iso views. |
+| **Section cut, camera views, light and dark themes** | Cut the model at any height, jump between corner, above, front, back, left and right views. |
 
 | Home | Click to select |
 | --- | --- |
@@ -51,7 +51,7 @@ that one derived description, so the 3D model and the plans always agree to the 
 
 | Plans | Design check |
 | --- | --- |
-| ![Drawings tab](docs/screenshots/drawings.png) | ![Design check tab](docs/screenshots/design-check.png) |
+| ![Plans tab](docs/screenshots/plans.png) | ![Design check tab](docs/screenshots/design-check.png) |
 
 ## Quick start
 
@@ -74,7 +74,7 @@ npm install                                   # also copies the web-ifc wasm int
 npm run dev                                   # http://127.0.0.1:5174
 ```
 
-Open http://127.0.0.1:5174, pick a starter or type a sentence, press Enter. With no setup the **Offline mock** model is used: it needs no
+Open http://127.0.0.1:5174, pick a starter or type a sentence, press Enter. With no setup the **Practice mode** model is used: it needs no
 network and understands storeys, bedroom counts and a few room words, which is enough to see the whole pipeline work.
 
 ## The AI model
@@ -89,7 +89,7 @@ GEMINI_API_KEY=your-key
 Pick **Gemini** in the model picker. The key is read from the environment and never stored in the database. A two-storey house takes
 about 40 seconds and an edit about 30. `reasoning_effort: low` is what keeps a build call near 10 seconds instead of 30.
 
-Without a key the **Offline mock** model is used. It needs no network and understands storeys, bedroom counts and a few room words,
+Without a key the **Practice mode** model is used. It needs no network and understands storeys, bedroom counts and a few room words,
 which is enough to see the whole pipeline work, and it is what the tests run on. It cannot edit an existing design.
 
 ## Exports
@@ -108,11 +108,11 @@ which is enough to see the whole pipeline work, and it is what the tests run on.
 | Backend | Python 3.12, FastAPI, pydantic v2, uvicorn |
 | Geometry and CAD | IfcOpenShell 0.9 (IFC4), shapely, ezdxf |
 | Database | SQLite in WAL mode, stdlib `sqlite3`, plain SQL ([schema](backend/app/db/schema.sql)) |
-| AI | One `LLM.complete()` interface; Gemini through its OpenAI-compatible endpoint, plus an offline mock for tests |
+| AI | One `LLM.complete()` interface; Gemini through its OpenAI-compatible endpoint, plus a built-in practice model for tests |
 | Streaming | Server-Sent Events over POST |
 | Frontend | React 19, TypeScript 7, Vite 8, Tailwind CSS v4, Radix UI primitives, Lucide icons |
 | 3D | That Open (`@thatopen/components`, `@thatopen/fragments`) on three.js, with `web-ifc` pinned to 0.0.77 |
-| Tests | pytest (91 tests, no network), Vitest (7 tests), headless-browser checks of the main flows |
+| Tests | pytest (77 tests, no network), Vitest (8 tests), headless-browser checks of the main flows |
 
 ## Project layout
 
@@ -139,11 +139,11 @@ docs/              architecture, API, screenshots
 ## Tests
 
 ```bash
-cd backend  && .venv/Scripts/python -m pytest        # 76 tests on the offline mock, no network
+cd backend  && .venv/Scripts/python -m pytest        # 77 tests on the practice model, no network
 cd frontend && npm test                                # 8 tests
 cd frontend && npx tsc --noEmit                        # type check
 cd design   && python contrast.py tokens.json          # WCAG contrast of every text/background pair (also tokens.dark.json)
-cd e2e && npm install && npm test                      # 30 browser tests, isolated backend and database, offline mock
+cd e2e && npm install && npm test                      # 30 browser tests, isolated backend and database, practice model
 cd e2e && npm run test:live                            # 1 test against Gemini (needs GEMINI_API_KEY; costs a few cents)
 ```
 

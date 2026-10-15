@@ -27,6 +27,22 @@ export async function resetProjects(request: APIRequestContext): Promise<void> {
 
 export const composer = (page: Page) => page.getByLabel('Describe what to build');
 
+/** The list of projects is a sheet opened from the top bar. */
+export async function openProjects(page: Page) {
+  await page.getByRole('button', { name: 'Projects' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Projects' });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+export async function openProjectByName(page: Page, name: RegExp): Promise<void> {
+  const sheet = await openProjects(page);
+  await sheet.getByRole('button', { name }).first().click();
+}
+export async function newProject(page: Page): Promise<void> {
+  const sheet = await openProjects(page);
+  await sheet.getByRole('button', { name: 'New project' }).click();
+}
+
 /** Open the app, send a prompt, wait for the finished version. */
 export async function build(page: Page, prompt = HOUSE): Promise<void> {
   await page.goto('/');

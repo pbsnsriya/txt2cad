@@ -19,7 +19,7 @@ test('F03-H1 clicking selects an element and says what the next message is about
   await build(page);
   await clickModel(page);
   await expect(page.getByTestId('selection')).toBeVisible();
-  await expect(page.getByTestId('context-chip')).toContainText('About:');
+  await expect(page.getByTestId('context-chip')).toContainText('Re:');
 });
 
 test('F03-H2 the next message carries the element id', async ({ page }) => {
@@ -48,7 +48,7 @@ test('F03-E2 clearing the selection removes the highlight note and the chip', as
   await build(page);
   await clickModel(page);
   await expect(page.getByTestId('selection')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear selection' }).first().click();
+  await page.getByRole('button', { name: 'Unpick' }).first().click();
   await expect(page.getByTestId('selection')).toHaveCount(0);
   await expect(page.getByTestId('context-chip')).toHaveCount(0);
 });

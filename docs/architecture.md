@@ -26,7 +26,7 @@ The model emits **steps**, never geometry. A step is a small JSON object:
 {"step": "room", "level": "L1", "name": "Kitchen", "kind": "kitchen", "rect": [4, 0, 4, 5], "why": "next to the hall"}
 ```
 
-The vocabulary is `building, level, room, layout, door, window, stair, roof, material, remove, note`. Everything else is derived:
+The vocabulary is `project, storey, room, rearrange, door, window, stair, roof, material, delete, remark`. Everything else is derived:
 
 | Layer | What it holds | Where |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ closed polygons) is where models fail; and one derived description guarantees th
 5. **Pruning.** A structural step (add or move a room) can leave a door, window or stair with no wall to sit in. Those are dropped and
    the step's message says so, instead of rejecting the change the user asked for.
 6. **Compile and save.** Derive, write IFC4 reusing the previous GlobalIds, insert the version in one transaction.
-7. **Events.** `build, requirements, approach, draft, step, partial, verify, compile, focus, llm, done, error`, each with `seq` and
+7. **Events.** `phase, checklist, strategy, writing, move, preview, compare, packaging, selected, model_call, finished, failed`, each with `seq` and
    `t`, and a `: ping` comment every second so no proxy buffers the stream.
 
 Edits use the same pipeline. The model is shown the current design as compact text (rooms with rectangles, exterior sides, neighbours,
@@ -73,7 +73,7 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
   is an error that names the exterior sides.
 - A stair is a straight flight along a wall: risers at most 0.19 m, treads 0.26 m, so a 3 m storey has 16 risers and a 3.9 m run. The
   flight must fit the room, and its top must land inside a room on the level above, which gets a stairwell cut in its slab.
-- Element ids come from room ids and sides (`L1-wall-kitchen-S`, `L1-wall-hall+living`), so moving or resizing a room keeps the ids of
+- Element ids come from room ids and sides (`wall.L1.kitchen.S`, `wall.L1.hall~living`, `door.kitchen.hall`, `stair.hall`), so moving or resizing a room keeps the ids of
   walls that still exist.
 - Units are metres end to end. The IFC declares metres explicitly (the IfcOpenShell default is millimetres).
 
@@ -83,7 +83,7 @@ SQLite, eight tables ([schema](../backend/app/db/schema.sql)):
 
 | Table | Purpose |
 | --- | --- |
-| `projects` | A session. Points at its head version. |
+| `projects` | A project. Points at its head version. |
 | `versions` | One finished version: design, derived spec, IFC GlobalId map, approach, notes, IFC path. Unique on `(project_id, number)`. |
 | `requirements` | The checklist for a version, with each item's checked status. |
 | `runs` | One prompt run, including ones that failed and produced no version. |
