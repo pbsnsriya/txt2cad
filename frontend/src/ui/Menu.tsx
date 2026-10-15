@@ -16,7 +16,7 @@ export interface MenuEntry {
 /** Dropdown with a title and one-line description per entry. Radix gives menu roles, arrow keys and type-ahead. */
 export function Menu({ trigger, entries, align = 'end' }: { trigger: ReactNode; entries: MenuEntry[]; align?: 'start' | 'end' }) {
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

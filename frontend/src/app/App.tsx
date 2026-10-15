@@ -189,7 +189,8 @@ export function App() {
   const head = detail?.head ?? null;
   const building = run.status === 'running';
   const inWorkspace = Boolean(detail) || run.status !== 'idle';
-  const badge = building ? (run.elements ? `building · ${run.elements} elements` : 'building') : viewing ? `v${viewing}${run.elements ? ` · ${run.elements} elements` : ''}` : '';
+  const count = run.elements || analysis?.quantities.totals.elements || 0;
+  const badge = building ? (run.elements ? `building · ${run.elements} elements` : 'building') : viewing ? `v${viewing}${count ? ` · ${count} elements` : ''}` : '';
   const exportEntries: MenuEntry[] = [
     { id: 'ifc', title: 'IFC model', description: 'IFC4 for Revit, Archicad, Navisworks', onSelect: () => download(viewing, 'ifc') },
     { id: 'dxf', title: 'CAD plans (.dxf)', description: 'every level on named layers, in metres', onSelect: () => download(viewing, 'dxf') },

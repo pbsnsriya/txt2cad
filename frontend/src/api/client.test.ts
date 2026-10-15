@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, runPrompt } from './client';
+import { ApiError, detailText, runPrompt } from './client';
 
 function sseResponse(chunks: string[]): Response {
   const enc = new TextEncoder();
@@ -28,5 +28,13 @@ describe('runPrompt', () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('failed to fetch'); }));
     await expect((async () => { for await (const _ of runPrompt('p', { prompt: 'x' }, new AbortController().signal)) { /* none */ } })())
       .rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('detailText', () => {
+  it('passes a string through, flattens a validation list, and never returns an object', () => {
+    expect(detailText('project is at version 3', 'x')).toBe('project is at version 3');
+    expect(detailText([{ loc: ['body', 'prompt'], msg: 'String should have at most 8000 characters' }], 'x')).toBe('prompt: String should have at most 8000 characters');
+    expect(detailText({ weird: true }, 'fallback')).toBe('fallback');
   });
 });

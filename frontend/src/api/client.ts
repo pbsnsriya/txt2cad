@@ -19,6 +19,13 @@ export interface Analysis { review: Review; quantities: Quantities }
 
 export interface RunEvent { seq: number; t: number; stage: string; message: string; data: Record<string, any> }
 
+/** FastAPI sends `detail` as a string, or as a list of problems for a 422. Always turn it into a sentence. */
+export function detailText(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map((d) => (typeof d === 'string' ? d : d?.msg ? `${(d.loc ?? []).filter((x: unknown) => x !== 'body').join('.')}: ${d.msg}` : JSON.stringify(d))).join('; ');
+  return fallback;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -32,8 +39,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     let detail = res.statusText;
-    try { detail = (await res.json()).detail ?? detail; } catch { /* body was not JSON */ }
-    throw new ApiError(res.status, String(detail));
+    try { detail = detailText((await res.json()).detail, detail); } catch { /* body was not JSON */ }
+    throw new ApiError(res.status, detail);
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }
@@ -65,8 +72,8 @@ export async function* runPrompt(projectId: string, body: { prompt: string; base
   }
   if (!res.ok || !res.body) {
     let detail = res.statusText;
-    try { detail = (await res.json()).detail ?? detail; } catch { /* not JSON */ }
-    throw new ApiError(res.status, String(detail));
+    try { detail = detailText((await res.json()).detail, detail); } catch { /* not JSON */ }
+    throw new ApiError(res.status, detail);
   }
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = '';

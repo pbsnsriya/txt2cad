@@ -154,3 +154,12 @@ def test_the_selected_element_reaches_the_model_as_words(client, monkeypatch):
     seen.clear()
     run(client, pid, "make this room bigger", base_version=2, focus_guid="0" * 22)      # an unknown id is ignored, not an error
     assert "SELECTED IN THE VIEWER" not in [r for r in seen if r.schema_name == "build"][0].user
+
+
+def test_a_validation_error_is_one_readable_sentence(client):
+    pid = client.post("/api/projects", json={}).json()["id"]
+    r = client.post(f"/api/projects/{pid}/runs", json={"prompt": "a house " * 1200})
+    assert r.status_code == 422 and isinstance(r.json()["detail"], str)
+    assert r.json()["detail"].startswith("prompt:") and "8000" in r.json()["detail"]
+    r = client.post(f"/api/projects/{pid}/runs", json={})
+    assert r.status_code == 422 and r.json()["detail"].startswith("prompt:")
