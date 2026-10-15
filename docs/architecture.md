@@ -34,10 +34,10 @@ The vocabulary is `building, level, room, layout, door, window, stair, roof, mat
 | **Steps** | The deltas the model streams. `apply_step` is pure and rejects a bad step with a message addressed to the model. | `domain/steps.py` |
 | **Derive** | Design to geometry. Deterministic. | `domain/derive.py` |
 | **BuildingSpec** | The geometric description every output is written from: walls, slabs, roofs, openings, stairs, spaces. | `domain/spec.py` |
-| **Outputs** | IFC4, DXF, STEP, SVG, analysis. | `ifc/`, `export/`, `analysis/` |
+| **Outputs** | IFC4, DXF, SVG, analysis. | `ifc/`, `export/`, `analysis/` |
 
 Why this split: a small house is a few hundred tokens of design and 50-200k tokens of IFC; the geometry (placements, boolean openings,
-closed polygons) is where models fail; and one derived description guarantees that the viewer, the plans and the STEP file agree.
+closed polygons) is where models fail; and one derived description guarantees that the viewer and the plans agree.
 
 ## A run, step by step
 
@@ -113,12 +113,11 @@ class LLM(Protocol):
 ```
 
 - `mock` runs the whole pipeline with no network (regexes and a strip packer).
-- `openai_compat` covers Gemini's OpenAI-compatible endpoint, Ollama, llama.cpp, vLLM and LM Studio. It asks for a JSON-schema response,
-  retries with `json_object` and then plain text if the endpoint rejects it, streams deltas, and accepts `reasoning_effort`.
+- `openai_compat` talks to Gemini's OpenAI-compatible endpoint. It asks for a JSON-schema response, retries with `json_object` and
+  then plain text if the endpoint rejects it, streams deltas, and accepts `reasoning_effort`.
 - The JSON schemas are flat and permissive on purpose (some endpoints reject `oneOf`, bounds, or large grammars); strict validation is on
   our side, with lenient normalisation for what models actually write: `"north"` to `N`, a missing level to the newest level, a missing
   room name from its kind, `"Living Room"`, `"Bedroom 1"`, `"Hall L2"` resolved to room ids, and a clear error when a name is ambiguous.
-- `ProgramLLM` wraps any model for new designs only: the model lists rooms and levels, `layout_steps` does the rest.
 
 ## Frontend
 
@@ -146,9 +145,8 @@ class LLM(Protocol):
 | Model emits steps, code derives geometry | Models are bad at geometry and at consistent IFC references; steps are small, validated and explainable. |
 | Rectangles on a grid | The only way detailed layouts ("kitchen next to the dining room") are honoured; overlaps are caught per step. |
 | Centreline rectangles | Neighbouring rooms share exactly one wall; element ids stay stable when rooms move. |
-| One derived spec for every format | The viewer, plans and STEP can never disagree. |
+| One derived spec for every format | The viewer and the plans can never disagree. |
 | SSE over POST | One-way, proxy-friendly, no WebSocket infrastructure; the build is visible step by step. |
 | SQLite, plain SQL | One user, local-first, zero setup; the schema is written to move to Postgres. |
 | Whole-model reload in the viewer | Correct by construction; patching meshes by id is deferred. |
 | Review and quantities labelled as indicative / priceless | Rules differ by country and prices by place and date; the app shows what it can measure and says so. |
-| DWG through an external converter | No open writer worth trusting; the converter is the user's install, never bundled or downloaded. |

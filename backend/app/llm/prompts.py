@@ -1,4 +1,4 @@
-"""System prompts. Written for this project; small enough for local models to follow."""
+"""System prompts. Written for this project; short enough to stay cheap and fast."""
 
 REQUIREMENTS_SYSTEM = """You turn a request for a building into a checklist of facts that can be verified.
 Return JSON: {"requirements": [ ... ]}. One item per fact. Each item has:

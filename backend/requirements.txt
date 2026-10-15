@@ -10,4 +10,3 @@ python-dotenv
 python-multipart
 pytest
 pytest-asyncio
-cadquery>=2.4

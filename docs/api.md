@@ -4,7 +4,7 @@ All routes are under `/api`, JSON unless noted. The server accepts requests from
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /health` | Liveness, the default model profile, and whether a DWG converter was found. |
+| `GET /health` | Liveness and the default model profile. |
 | `GET /llm/profiles` | Model profiles with a `ready` flag (the key variable is set, a model is chosen). |
 | `GET /projects` | Sessions, newest first. |
 | `POST /projects` | Create a session: `{name}`. |
@@ -15,7 +15,7 @@ All routes are under `/api`, JSON unless noted. The server accepts requests from
 | `GET /files/previews/{project}/{run}/{n}.ifc` | A preview IFC announced by a `partial` event. Served by validated ids; old ones are pruned. |
 | `GET /projects/{id}/versions/{n}` | One version's record. |
 | `GET /projects/{id}/versions/{n}/ifc` | The IFC file. |
-| `GET /projects/{id}/versions/{n}/export?format=` | One of `ifc, dxf, step, svg, dwg, spec_json, design_json`. `dwg` answers 409 with instructions when no converter is installed. |
+| `GET /projects/{id}/versions/{n}/export?format=` | One of `ifc, dxf, svg, spec_json, design_json`. |
 | `GET /projects/{id}/versions/{n}/drawing` | The plans as an inline SVG (the Drawings tab). |
 | `GET /projects/{id}/versions/{n}/analysis` | The design check and the quantity take-off. Check clauses carry IFC GlobalIds so a viewer can highlight them. |
 | `POST /projects/{id}/revert/{n}` | Append a copy of version *n* as a new version. |
@@ -51,5 +51,5 @@ A comment line `: ping` is sent every second so proxies keep the connection open
 | Status | When |
 | --- | --- |
 | 404 | Unknown project or version, or a project that belongs to another owner. |
-| 409 | A stale `base_version`, a version number taken by a concurrent run, or an export that needs something missing (DWG without the converter). |
+| 409 | A stale `base_version`, or a version number taken by a concurrent run. |
 | 400 | An unknown export format. |

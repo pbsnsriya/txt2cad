@@ -1,4 +1,4 @@
-"""One adapter for every OpenAI-style chat endpoint: Gemini (OpenAI-compatible URL), Ollama /v1, llama.cpp server, vLLM, LM Studio.
+"""One adapter for OpenAI-style chat endpoints. Used for Gemini through its OpenAI-compatible URL.
 
 JSON is requested with response_format json_schema first; endpoints that reject it get a retry with json_object and then with
 plain text (the reply is validated on our side either way). Streaming deltas are accumulated and passed to on_text.

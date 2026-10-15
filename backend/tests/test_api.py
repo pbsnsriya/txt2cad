@@ -115,15 +115,11 @@ def test_other_owner_cannot_see_a_project(client):
         repo.get_project("someone-else", pid)
 
 
-def test_unknown_export_format_and_a_missing_dwg_converter(client, monkeypatch):
-    monkeypatch.delenv("TXT2CAD_ODA_CONVERTER", raising=False)
-    monkeypatch.setattr("app.export.dwg.DEFAULT_GLOBS", ())
+def test_unknown_export_formats_are_a_400_and_missing_versions_a_404(client):
     pid = client.post("/api/projects", json={}).json()["id"]
     run(client, pid)
-    assert client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "pdf"}).status_code == 400
-    r = client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "dwg"})
-    assert r.status_code == 409 and "ODA File Converter" in r.json()["detail"] and "DXF opens in AutoCAD" in r.json()["detail"]
-    assert client.get("/api/health").json()["dwg_converter"] is False
+    for fmt in ("pdf", "step", "dwg"):
+        assert client.get(f"/api/projects/{pid}/versions/1/export", params={"format": fmt}).status_code == 400
     assert client.get(f"/api/projects/{pid}/versions/9/ifc").status_code == 404
 
 

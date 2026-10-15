@@ -58,8 +58,6 @@ def init_db() -> None:
 def seed_profiles(c: sqlite3.Connection) -> None:
     rows = [
         ("Offline mock", "mock", "", "", "", 1, "{}"),
-        # a small local model cannot place rooms and openings (qwen2.5vl:7b rejected half its steps), so it only writes the room program
-        ("Local (Ollama)", "openai_compat", "http://127.0.0.1:11434/v1", "qwen2.5vl:7b", "", 0, '{"planner": "program"}'),
         # reasoning_effort "low" cut Gemini 2.5 Flash from 25-48 s to about 11 s per build call with the same step quality
         ("Gemini", "openai_compat", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash", "GEMINI_API_KEY", 0,
          '{"reasoning_effort": "low"}'),

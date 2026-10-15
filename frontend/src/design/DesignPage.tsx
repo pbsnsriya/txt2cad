@@ -22,7 +22,7 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
 const exportEntries = [
   { id: 'ifc', title: 'IFC model', description: 'IFC4 for Revit, Archicad, Navisworks' },
   { id: 'dxf', title: 'CAD plans (.dxf)', description: 'every level on named layers' },
-  { id: 'step', title: 'STEP solids', disabledReason: 'Not available yet' },
+  { id: 'svg', title: 'Plans (.svg)', description: 'the floor plans as a vector picture' },
 ];
 
 export function DesignPage() {

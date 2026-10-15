@@ -38,7 +38,7 @@ export function App() {
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [backend, setBackend] = useState<{ ok: boolean; label: string; dwg: boolean }>({ ok: false, label: 'Checking...', dwg: false });
+  const [backend, setBackend] = useState<{ ok: boolean; label: string }>({ ok: false, label: 'Checking...' });
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [run, setRun] = useState<RunView>(emptyRun);
@@ -67,14 +67,14 @@ export function App() {
     (async () => {
       try {
         const [h, p, list] = await Promise.all([api.health(), api.profiles(), api.projects()]);
-        setBackend({ ok: true, label: `${h.llm.profile}`, dwg: h.dwg_converter });
+        setBackend({ ok: true, label: `${h.llm.profile}` });
         setProfiles(p);
         setProfileId((cur) => cur ?? p.find((x) => x.is_default)?.id ?? null);
         setProjects(list);
         const last = readStored('project');
         if (last && list.some((x) => x.id === last)) await openProject(last);
       } catch (e) {
-        setBackend({ ok: false, label: 'Not connected', dwg: false });
+        setBackend({ ok: false, label: 'Not connected' });
         setError((e as Error).message);
       }
     })();
@@ -195,9 +195,7 @@ export function App() {
     { id: 'dxf', title: 'CAD plans (.dxf)', description: 'every level on named layers, in metres', onSelect: () => download(viewing, 'dxf') },
     { id: 'spec', title: 'Geometry spec (.json)', description: 'every element the files were built from', onSelect: () => download(viewing, 'spec_json') },
     { id: 'design', title: 'Design record (.json)', description: 'rooms, doors and windows as designed', onSelect: () => download(viewing, 'design_json') },
-    { id: 'step', title: 'STEP solids (.step)', description: 'walls, floors, roof, stairs as solids for mechanical CAD', onSelect: () => download(viewing, 'step') },
     { id: 'svg', title: 'Plans (.svg)', description: 'the floor plans as a vector picture', onSelect: () => download(viewing, 'svg') },
-    { id: 'dwg', title: 'DWG drawing (.dwg)', description: 'the DXF converted by the ODA File Converter', disabledReason: backend.dwg ? undefined : 'Needs the free ODA File Converter (not installed)', onSelect: () => download(viewing, 'dwg') },
   ];
 
   return (

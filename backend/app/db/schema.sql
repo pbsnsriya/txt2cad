@@ -8,7 +8,7 @@
 --  * booleans: INTEGER 0/1. Postgres move: boolean.
 --  * owner_id: 'local' while the app is single-user. When auth arrives it becomes a real users(id) FK.
 --    Every read and write goes through data-layer functions that take owner_id (see architecture.md, access rules).
---  * files (IFC, DXF, STEP, screenshots, run logs) live on disk under data/projects/<project_id>/ ; the db stores paths.
+--  * files (IFC, previews, run logs) live on disk under data/projects/<project_id>/ ; the db stores paths.
 
 create table projects (
   id              text primary key default (lower(hex(randomblob(16)))),
@@ -114,7 +114,7 @@ create table exports (
   id            text primary key default (lower(hex(randomblob(16)))),
   version_id    text not null references versions(id) on delete cascade,
   format        text not null check (format in (
-                  'ifc','dxf','dwg','step','xlsx','pdf','svg','bcf','zip',
+                  'ifc','dxf','svg',
                   'estimate_csv','review_md','spec_json','design_json')),
   path          text not null,
   sha256        text not null check (length(sha256) = 64),
@@ -130,7 +130,7 @@ create table llm_profiles (
   id            text primary key default (lower(hex(randomblob(16)))),
   owner_id      text not null default 'local',
   name          text not null check (length(name) between 1 and 100),
-  provider      text not null check (provider in ('mock','openai_compat','ollama','llamacpp','gemini_native')),
+  provider      text not null check (provider in ('mock','openai_compat')),
   base_url      text not null default '',
   model         text not null default '',
   api_key_env   text not null default '',

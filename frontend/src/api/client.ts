@@ -39,7 +39,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ ok: boolean; llm: { profile: string; provider: string; model: string }; dwg_converter: boolean }>('/api/health'),
+  health: () => request<{ ok: boolean; llm: { profile: string; provider: string; model: string } }>('/api/health'),
   analysis: (id: string, n: number) => request<Analysis>(`/api/projects/${id}/versions/${n}/analysis`),
   drawingUrl: (id: string, n: number) => `${API_BASE}/api/projects/${id}/versions/${n}/drawing`,
   profiles: () => request<Profile[]>('/api/llm/profiles'),

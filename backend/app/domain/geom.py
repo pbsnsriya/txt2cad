@@ -1,4 +1,4 @@
-"""Plan geometry shared by every exporter, so IFC, DXF and STEP agree to the millimetre."""
+"""Plan geometry shared by every exporter, so IFC and DXF agree to the millimetre."""
 
 from __future__ import annotations
 

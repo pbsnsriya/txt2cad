@@ -19,13 +19,10 @@ from ..analysis.review import review
 from ..domain.design import Design
 from ..domain.spec import BuildingSpec
 from ..export.dxf import dxf_text
-from ..export.dwg import DwgUnavailable, dwg_bytes, find_converter
-from ..export.step import step_bytes
 from ..export.svg import svg_text
 from ..llm.base import LLM
 from ..llm.mock import MockLLM
 from ..llm.openai_compat import OpenAICompatLLM
-from ..llm.program import ProgramLLM
 from ..pipeline.run import RunInput, run_pipeline
 
 router = APIRouter(prefix="/api")
@@ -41,14 +38,13 @@ def make_llm(profile: dict[str, Any]) -> LLM:
     if profile["provider"] == "mock":
         return MockLLM()
     options = json.loads(profile["options_json"] or "{}")
-    llm: LLM = OpenAICompatLLM(profile["base_url"], profile["model"], profile["api_key_env"], options)
-    return ProgramLLM(llm) if options.get("planner") == "program" else llm
+    return OpenAICompatLLM(profile["base_url"], profile["model"], profile["api_key_env"], options)
 
 
 @router.get("/health")
 def health() -> dict[str, Any]:
     default = repo.get_profile(OWNER, None)
-    return {"ok": True, "llm": {"profile": default["name"], "provider": default["provider"], "model": default["model"]}, "dwg_converter": find_converter() is not None}
+    return {"ok": True, "llm": {"profile": default["name"], "provider": default["provider"], "model": default["model"]}}
 
 
 # --- LLM profiles -----------------------------------------------------------------------------------------------------
@@ -194,7 +190,7 @@ def version_ifc(pid: str, n: int) -> FileResponse:
     return FileResponse(config.DATA_DIR / v["ifc_path"], media_type="application/octet-stream", filename=f"v{n}.ifc")
 
 
-EXPORT_FORMATS = {"ifc", "dxf", "svg", "step", "dwg", "spec_json", "design_json"}
+EXPORT_FORMATS = {"ifc", "dxf", "svg", "spec_json", "design_json"}
 
 
 @router.get("/projects/{pid}/versions/{n}/export")
@@ -211,15 +207,6 @@ def export(pid: str, n: int, format: str = Query(...)) -> Response:
     if format == "dxf":
         text = dxf_text(BuildingSpec.model_validate_json(v["spec_json"]))
         return Response(text, media_type="application/dxf", headers={"Content-Disposition": f'attachment; filename="{stem}.dxf"'})
-    if format == "step":
-        data = step_bytes(BuildingSpec.model_validate_json(v["spec_json"]))
-        return Response(data, media_type="application/step", headers={"Content-Disposition": f'attachment; filename="{stem}.step"'})
-    if format == "dwg":
-        try:
-            data = dwg_bytes(BuildingSpec.model_validate_json(v["spec_json"]))
-        except DwgUnavailable as exc:
-            raise HTTPException(409, str(exc)) from exc
-        return Response(data, media_type="application/acad", headers={"Content-Disposition": f'attachment; filename="{stem}.dwg"'})
     if format == "svg":
         return Response(svg_text(BuildingSpec.model_validate_json(v["spec_json"])), media_type="image/svg+xml",
                         headers={"Content-Disposition": f'attachment; filename="{stem}.svg"'})
