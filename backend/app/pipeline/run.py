@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
@@ -23,7 +24,7 @@ from ..ifc.compile import compile_ifc
 from ..llm.base import LLM, LLMError, LLMRequest
 from ..llm.prompts import BUILD_SYSTEM, REQUIREMENTS_SYSTEM
 from ..llm.schemas import BUILD_SCHEMA, REQUIREMENTS_SCHEMA
-from . import layouts
+from . import gate, layouts
 from .stream import COMPILE_POOL, PreviewWorker, StepStream
 
 
@@ -77,7 +78,7 @@ async def run_pipeline(inp: RunInput) -> AsyncIterator[dict[str, Any]]:
     async def body() -> None:
         try:
             await _run(inp, emit)
-        except (LLMError, DesignError, repo.Conflict) as exc:
+        except (LLMError, DesignError, repo.Conflict, gate.QualityError) as exc:
             repo.finish_run(inp.run_id, "failed", str(exc))
             await emit("failed", str(exc), kind=type(exc).__name__)
         except asyncio.CancelledError:
@@ -98,6 +99,11 @@ async def run_pipeline(inp: RunInput) -> AsyncIterator[dict[str, Any]]:
         if not task.done():
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+
+
+def _trim(feedback: list[str], keep: int = 12) -> list[str]:
+    """A long list of complaints drowns the model; send the first few and say how many more there are."""
+    return feedback if len(feedback) <= keep else [*feedback[:keep], f"...and {len(feedback) - keep} more of the same kind"]
 
 
 async def _call_llm(inp: RunInput, request: LLMRequest, on_chunk=None, emit=None) -> dict[str, Any]:
@@ -129,27 +135,49 @@ async def _run(inp: RunInput, emit) -> None:
         await emit("selected", f"Selected: {focus}", text=focus)
     previews = PreviewWorker(inp.project_id, inp.run_id, emit, guids)
     approach, feedback, applied_total = "", [], 0
+    started_with = len(design.rooms) if (base and not fresh) else None
+    run_started, previous_open = time.monotonic(), None
     try:
         for rnd in range(config.MAX_REPAIR_ROUNDS + 1):
             if rnd:
                 await emit("phase", f"Fix round {rnd}: {len(feedback)} issue(s) go back to the model")
             chunks: asyncio.Queue[str] = asyncio.Queue()
             notes_before = len(design.notes)
-            stream = StepStream(design, emit, previews.submit)
+            stream = StepStream(design, emit, previews.submit, max_steps=config.MAX_STEPS_PER_ROUND, max_rejected=config.MAX_REJECTED_PER_ROUND)
+            stop = threading.Event()
+            round_started = time.monotonic()
             request = LLMRequest(BUILD_SYSTEM, _user_prompt(inp.prompt, design, checklist, feedback, focus, inp.layout), "build", BUILD_SCHEMA,
                                  meta={"prompt": inp.prompt, "has_design": bool(design.rooms), "round": rnd, "option": inp.layout or 0})
+            request.stop = stop
             call = asyncio.create_task(_call_llm(inp, request, chunks.put_nowait, emit))
             while not (call.done() and chunks.empty()):
                 try:
                     await stream.feed(await asyncio.wait_for(chunks.get(), 0.1))
                 except asyncio.TimeoutError:
                     pass
-            result = await call
+                if not stop.is_set():
+                    now = time.monotonic()
+                    why = stream.limit_reason if stream.over_limit else (
+                        "the model took too long on this round" if now - round_started > config.MAX_CALL_SECONDS else
+                        "the run reached its time limit" if now - run_started > config.MAX_RUN_SECONDS else "")
+                    if why:
+                        stop.set()
+                        log.warning("run %s round %d stopped: %s", inp.run_id, rnd + 1, why)
+                        stream.limit_reason = stream.limit_reason or why
+                        stream.over_limit = True
+            try:
+                result = await call
+            except LLMError:
+                if not stop.is_set():
+                    raise
+                result = {"steps": []}                # we cut the reply short on purpose; what was applied so far stands
             await stream.feed_steps(result.get("steps", []))      # anything the stream missed (non-streaming providers)
             approach = result.get("approach") or approach
             if rnd == 0 and approach:
                 await emit("strategy", approach, text=approach)
             design = stream.design
+            if stream.over_limit:
+                design.notes.append(f"round {rnd + 1} was stopped early: {stream.limit_reason}")
             applied_total += stream.applied
             results = checks.check(design, checklist)
             skipped = [n.removeprefix(SKIPPED_PREFIX) for n in design.notes[notes_before:] if n.startswith(SKIPPED_PREFIX)]
@@ -157,7 +185,14 @@ async def _run(inp: RunInput, emit) -> None:
             tally = {k: sum(r["status"] == k for r in results) for k in ("met", "unmet", "unsupported", "not_checked")}
             await emit("compare", f"{tally['met']} met, {tally['unmet']} unmet" + (f", {tally['not_checked']} not checked automatically" if tally["not_checked"] else "")
                        + (f", {tally['unsupported']} not buildable yet" if tally["unsupported"] else ""), items=results, tally=tally)
+            feedback = _trim(feedback)
+            open_items = len(checks.unmet(results)) + len(checks.completeness(design))
             if not feedback or (rnd and not stream.applied):
+                break
+            if previous_open is not None and open_items >= previous_open:
+                break                                  # this round fixed nothing, so another one will not either
+            previous_open = open_items
+            if time.monotonic() - run_started > config.MAX_RUN_SECONDS:
                 break
     finally:
         await previews.close()
@@ -167,6 +202,10 @@ async def _run(inp: RunInput, emit) -> None:
 
     spec = derive(design)
     results = checks.check(design, checklist)
+    reasons = gate.problems(design, results, started_with)
+    if reasons:
+        raise gate.QualityError("This was not saved, because it did not turn out well enough: " + "; ".join(reasons) + ". Try describing it with fewer "
+                                "constraints, or name the rooms you want.")
     await emit("packaging", "Compiling IFC4")
     loop = asyncio.get_running_loop()
     model, used = await loop.run_in_executor(COMPILE_POOL, compile_ifc, spec, design.model_dump_json(), guids)

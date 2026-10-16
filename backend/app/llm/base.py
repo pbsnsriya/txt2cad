@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -18,6 +19,7 @@ class LLMRequest:
     schema: dict[str, Any]
     meta: dict[str, Any] = field(default_factory=dict)   # side channel for the mock only
     images: list[dict[str, Any]] = field(default_factory=list)
+    stop: threading.Event | None = None   # set by the caller to say "enough": providers stop reading and return what they have
 
 
 class LLMError(RuntimeError):

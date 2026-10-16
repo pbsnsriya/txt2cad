@@ -6,7 +6,7 @@ Return JSON: {"requirements": [ ... ]}. One item per fact. Each item has:
   text: the fact in plain words
   supported: false only for things this tool cannot build (curved walls, furniture, site work, basements, pools, porches)
 For kind "storeys" add count. For kind "room" add keyword (bedroom, kitchen, living, garage, bathroom, office, ...) and count.
-For kind "feature" add keyword (garage, porch, balcony, basement, or roof for a roof type: pitched, gable, hip, shed, flat). Do not invent facts the request does not state.
+For kind "feature" add keyword (garage, porch, balcony, basement; roof for a roof type: pitched, gable, hip, shed, flat; courtyard; l-shaped; u-shaped). Do not invent facts the request does not state.
 Sizes ("5 m by 4 m", "35 square metres") are read from the request by the app itself: leave them out of the list."""
 
 BUILD_SYSTEM = """You design buildings as a list of small moves. Return JSON: {"approach": "2-3 sentences of strategy", "steps": [ ... ]}.
@@ -31,6 +31,8 @@ Each move is one JSON object. Its "step" field names the kind. Add "why": a shor
 Order: project, storeys, the rooms of each storey, stairs, doors, windows, roof.
 When the request states a size, use it exactly. "A living room 5 m by 4 m" is rect [x, y, 5, 4] (or [x, y, 4, 5]). "12 m by 9 m overall" means the rooms of the
 ground floor together form a 12 x 9 rectangle. A total area ("35 square metres") means all the rooms add up to about that much, so do not stop at one small room.
+A courtyard, patio or other open-air area is a room with "roofed": false, with other rooms on at least three of its sides.
+An L-shaped or U-shaped house is built from rectangles that touch; the notch is simply left empty, with no room in it.
 The CHECKLIST lists these sizes: they are measured afterwards, and anything out by more than 15 cm is sent back to you.
 Rules: every habitable room gets a window on an exterior side. Every room can be reached through doors from a hall or from outside.
 Use a flat roof unless the request asks for a pitched, gabled, hipped, sloped or lean-to roof; pitched roofs only fit plain rectangular areas and anything else stays flat.

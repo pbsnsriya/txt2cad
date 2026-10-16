@@ -72,6 +72,8 @@ class OpenAICompatLLM:
                 if resp.status_code >= 400:
                     raise LLMError(f"model endpoint answered HTTP {resp.status_code}: {resp.read().decode('utf-8', 'replace')[:300]}")
                 for line in resp.iter_lines():
+                    if request.stop is not None and request.stop.is_set():
+                        break
                     if not line.startswith("data:"):
                         continue
                     payload = line[5:].strip()

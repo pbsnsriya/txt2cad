@@ -37,6 +37,10 @@ class StepStream:
     applied: int = 0
     seen: int = 0
     rejections: list[str] = field(default_factory=list)
+    max_steps: int = config.MAX_STEPS_PER_ROUND
+    max_rejected: int = config.MAX_REJECTED_PER_ROUND
+    over_limit: bool = False
+    limit_reason: str = ""
     _last_draft: str | None = None
     _last_draft_at: float = 0.0
 
@@ -51,9 +55,16 @@ class StepStream:
 
     async def feed_steps(self, steps: list[dict[str, Any]]) -> None:
         while self.seen < len(steps):
+            if self.over_limit:                # a reply that has run away: the rest is not even read
+                self.seen = len(steps)
+                return
             raw = steps[self.seen]
             self.seen += 1
             await self._apply(raw)
+            if len(self.rejections) >= self.max_rejected:
+                self.over_limit, self.limit_reason = True, f"{len(self.rejections)} steps in a row of this reply were rejected"
+            elif self.seen >= self.max_steps:
+                self.over_limit, self.limit_reason = True, f"the reply went past {self.max_steps} steps"
 
     async def _apply(self, raw: dict[str, Any]) -> None:
         index = self.seen
