@@ -8,6 +8,7 @@ from .design import Design
 
 UNSUPPORTED_FEATURES = {"porch", "balcony", "basement", "pool", "garden", "furniture"}
 ALWAYS_BUILDABLE = {"storeys", "room", "window", "door"}
+ROOF_WORDS = {"roof", "pitched", "pitched roof", "gable", "gabled", "hip", "hipped", "shed", "mono-pitch", "monopitch", "sloped", "flat roof"}
 
 
 def normalise(raw: dict[str, Any]) -> dict[str, Any]:
@@ -19,6 +20,8 @@ def normalise(raw: dict[str, Any]) -> dict[str, Any]:
     supported = True if kind in ALWAYS_BUILDABLE else raw.get("supported", True) is not False
     if kind == "feature" and keyword in UNSUPPORTED_FEATURES:
         supported = False
+    if kind == "feature" and keyword in ROOF_WORDS:
+        supported = True
     return {"kind": kind, "text": raw.get("text", ""), "supported": supported, "params": params}
 
 
@@ -55,6 +58,30 @@ def _footprint(design: Design) -> tuple[float, float] | None:
 
 def _same_size(a: tuple[float, float], b: tuple[float, float], tol: float) -> bool:
     return (abs(a[0] - b[0]) <= tol and abs(a[1] - b[1]) <= tol) or (abs(a[0] - b[1]) <= tol and abs(a[1] - b[0]) <= tol)
+
+
+def _wanted_roof(text: str, keyword: str) -> str:
+    """'flat', 'hip', 'shed', 'gable', or 'pitched' (any slope will do) from how the request words the roof."""
+    t = f"{keyword} {text}".lower()
+    if "flat" in t:
+        return "flat"
+    if "hip" in t:
+        return "hip"
+    if "shed" in t or "mono" in t or "lean-to" in t:
+        return "shed"
+    if "gable" in t:
+        return "gable"
+    return "pitched"
+
+
+def _check_roof(design: Design, r: dict[str, Any]) -> tuple[str, str]:
+    want = _wanted_roof(r.get("text", ""), str(r.get("params", {}).get("keyword", "")))
+    have = design.roof
+    ok = (have != "flat") if want == "pitched" else (have == want)
+    if ok:
+        return "met", f"{have} roof" + (f", {design.roof_pitch:g} degrees" if have != "flat" else "")
+    return "unmet", (f"wanted a {want} roof, the design has a {have} roof; send a roof step with kind "
+                     f"{'gable, hip or shed' if want == 'pitched' else want} (and pitch in degrees, 5 to 60, default 30)")
 
 
 def _check_dimension(design: Design, p: dict[str, Any]) -> tuple[str, str]:
@@ -105,6 +132,8 @@ def check(design: Design, requirements: list[dict[str, Any]]) -> list[dict[str, 
         p = r.get("params", {})
         if not r.get("supported", True):
             r["status"], r["detail"] = "unsupported", "this tool cannot build it yet; noted in the version summary"
+        elif r["kind"] == "feature" and str(p.get("keyword", "")).lower() in ROOF_WORDS:
+            r["status"], r["detail"] = _check_roof(design, r)
         elif r["kind"] == "dimension" and {"keyword", "width", "depth"} <= p.keys():
             r["status"], r["detail"] = _check_dimension(design, p)
         elif r["kind"] == "area" and {"keyword", "area"} <= p.keys():

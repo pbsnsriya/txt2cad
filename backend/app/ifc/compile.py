@@ -22,6 +22,7 @@ import ifcopenshell.api.unit
 import ifcopenshell.guid
 
 from ..domain.geom import box_on_wall as _box_on_wall, stair_profile, wall_outline as _wall_outline
+from ..domain.roofs import roof_mesh
 from ..domain.spec import BuildingSpec, Point, StairSpec
 
 DOOR_LEAF_THICKNESS = 0.05
@@ -71,6 +72,14 @@ class _Builder:
         solid = m.createIfcExtrudedAreaSolid(profile, place, m.createIfcDirection((0.0, 0.0, 1.0)), float(depth))
         ifcopenshell.api.style.assign_item_style(m, item=solid, style=self.style(style))
         rep = m.createIfcShapeRepresentation(body, "Body", "SweptSolid", [solid])
+        return m.createIfcProductDefinitionShape(None, None, [rep])
+
+    def mesh_shape(self, body, vertices, triangles, style: str):
+        """A closed tessellated body (pitched roofs)."""
+        m = self.model
+        rep = ifcopenshell.api.geometry.add_mesh_representation(m, context=body, vertices=[[list(v) for v in vertices]], faces=[[list(t) for t in triangles]])
+        for item in rep.Items:
+            ifcopenshell.api.style.assign_item_style(m, item=item, style=self.style(style))
         return m.createIfcProductDefinitionShape(None, None, [rep])
 
     def stair_shape(self, body, st: StairSpec):
@@ -134,7 +143,11 @@ def compile_ifc(spec: BuildingSpec, design_json: str = "", guids: dict[str, str]
         stair = b.create("IfcStair", st.label or st.id, f"element:{st.id}", b.stair_shape(body, st), "STRAIGHT_RUN_STAIR")
         ifcopenshell.api.spatial.assign_container(m, products=[stair], relating_structure=storeys[st.level])
     for r in spec.roofs:
-        roof = b.create("IfcRoof", r.label or r.id, f"element:{r.id}", b.extrude(body, r.outline, r.z_bottom, r.thickness, "roof"), "FLAT_ROOF")
+        if r.kind == "flat":
+            roof = b.create("IfcRoof", r.label or r.id, f"element:{r.id}", b.extrude(body, r.outline, r.z_bottom, r.thickness, "roof"), "FLAT_ROOF")
+        else:
+            verts, tris = roof_mesh(r.outline, r.z_bottom, r.kind, r.pitch, r.high_side)
+            roof = b.create("IfcRoof", r.label or r.id, f"element:{r.id}", b.mesh_shape(body, verts, tris, "roof"), f"{r.kind.upper()}_ROOF")
         ifcopenshell.api.spatial.assign_container(m, products=[roof], relating_structure=storeys[r.level])
 
     for o in spec.openings:

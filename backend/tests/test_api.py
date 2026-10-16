@@ -174,3 +174,20 @@ def test_stated_sizes_reach_the_checklist_and_are_measured(client):
     compared = [e for e in evs if e["stage"] == "compare"][-1]["data"]["items"]
     measured = [i for i in compared if i["kind"] == "dimension"][0]
     assert measured["status"] in ("met", "unmet") and "asked 6.0 x 4.0 m" in measured["detail"]   # the offline model does not try to hit it, but it is measured
+
+
+def test_a_pitched_roof_runs_through_to_ifc_and_exports(client):
+    pid = client.post("/api/projects", json={"name": "Gable"}).json()["id"]
+    evs = run(client, pid, "A one storey house with a kitchen, living room and two bedrooms, with a pitched roof.")
+    assert evs[-1]["stage"] == "finished"
+    assert any(e["stage"] == "move" and "roof" in e["message"].lower() and "gable" in e["message"].lower() for e in evs)
+    compared = [e for e in evs if e["stage"] == "compare"][-1]["data"]["items"]
+    assert [i["status"] for i in compared if i["text"].lower().startswith("a gable roof")] == ["met"]
+    head = client.get(f"/api/projects/{pid}").json()["head"]
+    assert head["design"]["roof"] == "gable"
+    model = ifcopenshell.file.from_string(client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "ifc"}).text)
+    [roof] = model.by_type("IfcRoof")
+    assert roof.PredefinedType == "GABLE_ROOF" and roof.Representation.Representations[0].Items[0].is_a() in ("IfcTriangulatedFaceSet", "IfcPolygonalFaceSet")
+    assert client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "dxf"}).status_code == 200
+    rows = client.get(f"/api/projects/{pid}/versions/1/analysis").json()["quantities"]["rows"]
+    assert any(r["item"].startswith("Roof (gable") for r in rows)

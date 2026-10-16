@@ -38,7 +38,8 @@ def parse_prompt(prompt: str) -> dict[str, Any]:
     for word, kind, area in ROOM_WORDS:
         if re.search(word, t):
             rooms.append((word.capitalize(), kind, area))
-    return {"storeys": storeys, "bedrooms": _count(t, "bedroom"), "bathrooms": max(_count(t, "bath"), 1 if storeys > 1 else 0), "rooms": rooms}
+    roof = "hip" if re.search(r"hip", t) else "shed" if re.search(r"shed roof|lean-to|mono-?pitch", t) else "gable" if re.search(r"pitched|gable|sloped|sloping", t) else "flat"
+    return {"storeys": storeys, "bedrooms": _count(t, "bedroom"), "bathrooms": max(_count(t, "bath"), 1 if storeys > 1 else 0), "rooms": rooms, "roof": roof}
 
 
 def _pack(items: list[tuple[str, str, float]], y0: float, row_depth: float) -> list[dict[str, Any]]:
@@ -65,10 +66,10 @@ def build_steps(prompt: str) -> list[dict[str, Any]]:
         upper.append(("Bathroom", "bathroom", 6.0))
     # every upper level starts with a landing at the same corner as the ground-floor hall, so one flight can climb through them
     per_level: list[list[tuple[str, str, float]]] = [ground] + [[(f"Landing {i + 1}", "hall", 10.0), *upper] for i in range(1, p["storeys"])]
-    return [steps[0], *layout_steps(per_level)]
+    return [steps[0], *layout_steps(per_level, p["roof"])]
 
 
-def layout_steps(per_level: list[list[tuple[str, str, float]]]) -> list[dict[str, Any]]:
+def layout_steps(per_level: list[list[tuple[str, str, float]]], roof: str = "flat") -> list[dict[str, Any]]:
     """Rooms per level (the first room of each level is its hall or landing) -> a complete, valid step list: levels, two packed rows
     of rooms, one stair per storey against the hall's west wall, doors from the hall outwards, windows, roof. No model involved."""
     steps: list[dict[str, Any]] = []
@@ -81,7 +82,7 @@ def layout_steps(per_level: list[list[tuple[str, str, float]]]) -> list[dict[str
     for i in range(1, len(per_level)):
         steps.append({"step": "stair", "room": per_level[i - 1][0][0], "side": "W", "why": "stair against the hall wall, landing above"})
     steps += _openings(steps)
-    steps.append({"step": "roof", "kind": "flat", "why": "flat roof is the supported type"})
+    steps.append({"step": "roof", "kind": roof, "why": "the roof type the request asks for" if roof != "flat" else "flat roof unless one is asked for"})
     return steps
 
 
@@ -122,6 +123,8 @@ def build_requirements(prompt: str) -> list[dict[str, Any]]:
     reqs: list[dict[str, Any]] = [{"kind": "storeys", "count": p["storeys"], "text": f"{p['storeys']} storey(s)", "supported": True}]
     if p["bedrooms"]:
         reqs.append({"kind": "room", "keyword": "bedroom", "count": p["bedrooms"], "text": f"{p['bedrooms']} bedroom(s)", "supported": True})
+    if p["roof"] != "flat":
+        reqs.append({"kind": "feature", "keyword": "roof", "count": 1, "text": f"A {p['roof']} roof", "supported": True})
     for word, kind, _ in p["rooms"]:
         reqs.append({"kind": "room" if kind != "garage" else "feature", "keyword": kind, "count": 1, "text": word.lower(), "supported": True})
     return reqs

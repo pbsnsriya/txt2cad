@@ -45,6 +45,11 @@ class RoofSpec(BaseModel):
     outline: list[Point]
     thickness: float
     z_bottom: float
+    kind: Literal["flat", "gable", "hip", "shed"] = "flat"
+    pitch: float = 0.0                       # degrees, the pitch actually used
+    ridge_along: Literal["x", "y"] = "x"     # gable and hip: the direction the ridge runs
+    high_side: Literal["N", "S", "E", "W"] | None = None
+    note: str = ""                           # why a roof that was asked to be pitched is flat
 
 
 class OpeningSpec(BaseModel):

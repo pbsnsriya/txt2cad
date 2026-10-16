@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from shapely.geometry import box
 
 from .design import Design, Door, Level, Room, Stair, Window, MAX_LEVELS
+from .roofs import MAX_PITCH, MIN_PITCH, roof_kind
 
 STEP_KINDS = ("project", "storey", "room", "rearrange", "door", "window", "stair", "roof", "material", "delete", "remark")
 SIDE_WORDS = {"north": "N", "south": "S", "east": "E", "west": "W", "n": "N", "s": "S", "e": "E", "w": "W"}
@@ -44,6 +45,7 @@ class Step(BaseModel):
     sill: float | None = None
     to_level: str | int | None = None
     material: str | None = None
+    pitch: float | None = None
     text: str | None = None
 
     @field_validator("id", "room", "to", mode="before")
@@ -215,8 +217,17 @@ def apply_step(design: Design, step: Step) -> Design:
             data["width"] = step.width
         d.stairs = [x for x in d.stairs if x.id != sid and x.room != room.id] + [Stair(**data)]
     elif kind == "roof":
-        if step.kind not in (None, "flat"):
-            d.notes.append(f"roof '{step.kind}' is not supported yet; a flat roof was used")
+        rk = roof_kind(step.kind)
+        if rk is None:
+            raise StepError(f"roof kind '{step.kind}' is not one this tool builds; use flat, gable, hip or shed (pitched means gable)")
+        if step.pitch is not None and not (MIN_PITCH <= step.pitch <= MAX_PITCH):
+            raise StepError(f"roof pitch is in degrees, between {MIN_PITCH:g} and {MAX_PITCH:g} (got {step.pitch:g})")
+        d.roof = rk  # type: ignore[assignment]
+        if step.pitch is not None:
+            d.roof_pitch = step.pitch
+        if rk == "shed":
+            side = norm_side(step.side)
+            d.roof_high_side = side or d.roof_high_side or "N"
     elif kind == "material":
         if step.material not in ("masonry", "concrete", "timber", "plaster"):
             raise StepError("material must be masonry, concrete, timber or plaster")

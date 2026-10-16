@@ -163,7 +163,7 @@ async def _run(inp: RunInput, emit) -> None:
     loop = asyncio.get_running_loop()
     model, used = await loop.run_in_executor(COMPILE_POOL, compile_ifc, spec, design.model_dump_json(), guids)
     ifc_bytes = model.to_string().encode("utf-8")
-    notes = [*design.notes, *[f"not built: {r['text']}" for r in results if r["status"] == "unsupported"],
+    notes = [*design.notes, *[r.note for r in spec.roofs if r.note], *[f"not built: {r['text']}" for r in results if r["status"] == "unsupported"],
              *[f"unmet: {r['text']}" for r in results if r["status"] == "unmet"], *feedback[:5]]
     number = (base["number"] if base else 0) + 1
     names = ", ".join(r.name for r in design.rooms[:12])

@@ -6,7 +6,7 @@ Return JSON: {"requirements": [ ... ]}. One item per fact. Each item has:
   text: the fact in plain words
   supported: false only for things this tool cannot build (curved walls, furniture, site work, basements, pools, porches)
 For kind "storeys" add count. For kind "room" add keyword (bedroom, kitchen, living, garage, bathroom, office, ...) and count.
-For kind "feature" add keyword (garage, porch, balcony, basement). Do not invent facts the request does not state.
+For kind "feature" add keyword (garage, porch, balcony, basement, or roof for a roof type: pitched, gable, hip, shed, flat). Do not invent facts the request does not state.
 Sizes ("5 m by 4 m", "35 square metres") are read from the request by the app itself: leave them out of the list."""
 
 BUILD_SYSTEM = """You design buildings as a list of small moves. Return JSON: {"approach": "2-3 sentences of strategy", "steps": [ ... ]}.
@@ -23,7 +23,7 @@ Each move is one JSON object. Its "step" field names the kind. Add "why": a shor
   door       room, to (another room, or "outside"), side (N S E W, for doors to the outside), at (0..1 along the wall), kind (single, double, garage)
   window     room, side (N S E W; it must be an exterior side), at (0..1), kind (standard, large, small)
   stair      room, side (N S E W: the wall it runs along), width (default 1.0), to_level (default: the next storey)
-  roof       kind: flat (the only roof supported)
+  roof       kind: flat | gable | hip | shed (a "pitched" roof is a gable), pitch (degrees, 5 to 60, default 30), side (shed only: the high side N S E W)
   material   masonry | concrete | timber | plaster
   delete     id of a room, door, window or stair
   remark     text (a note for the person reading)
@@ -33,6 +33,7 @@ When the request states a size, use it exactly. "A living room 5 m by 4 m" is re
 ground floor together form a 12 x 9 rectangle. A total area ("35 square metres") means all the rooms add up to about that much, so do not stop at one small room.
 The CHECKLIST lists these sizes: they are measured afterwards, and anything out by more than 15 cm is sent back to you.
 Rules: every habitable room gets a window on an exterior side. Every room can be reached through doors from a hall or from outside.
+Use a flat roof unless the request asks for a pitched, gabled, hipped, sloped or lean-to roof; pitched roofs only fit plain rectangular areas and anything else stays flat.
 The front door is on the south side of the hall or living room. Typical sizes: bedroom 3x4, bathroom 2x2.5, kitchen 3x4, living 4x5, garage 3x6.
 Every storey above the ground needs a stair up from the one below. A flight for a 3 m storey is 1 m wide and 3.9 m long, so run it
 along a wall at least 4.2 m long, in a hall, and put a hall or landing on the storey above that covers the same x and y range.

@@ -36,7 +36,10 @@ def headline(step: Step, design: Design) -> str:
         s = design.stairs[-1] if design.stairs else None
         return f"Stair in {step.room} along the {SIDE_NAMES.get(norm_side(step.side) or '', 'chosen')} wall" + (f", rising to {s.to_level}" if s and s.to_level else ", rising to the next level")
     if k == "roof":
-        return "Flat roof over the top floor"
+        if design.roof == "flat":
+            return "Flat roof over the top floor"
+        extra = f", rising to the {SIDE_NAMES.get(design.roof_high_side or 'N')}" if design.roof == "shed" else ""
+        return f"{design.roof.capitalize()} roof, {design.roof_pitch:g} degrees{extra}"
     if k == "material":
         return f"Exterior walls in {step.material}"
     if k == "delete":

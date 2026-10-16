@@ -84,7 +84,9 @@ class Design(BaseModel):
     doors: list[Door] = Field(default_factory=list)
     windows: list[Window] = Field(default_factory=list)
     stairs: list[Stair] = Field(default_factory=list)
-    roof: Literal["flat"] = "flat"
+    roof: Literal["flat", "gable", "hip", "shed"] = "flat"
+    roof_pitch: float = Field(30.0, ge=5.0, le=60.0)
+    roof_high_side: Side | None = None      # shed roofs: the side that is high
     wall_material: Literal["masonry", "concrete", "timber", "plaster"] = "masonry"
     notes: list[str] = Field(default_factory=list)
 

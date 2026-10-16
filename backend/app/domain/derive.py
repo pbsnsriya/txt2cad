@@ -14,6 +14,7 @@ from shapely.geometry import MultiPolygon, Polygon, box
 from shapely.ops import unary_union
 
 from .design import Design, Room, Side
+from .roofs import effective_pitch, is_rectangle, ridge_axis
 from .spec import BuildingSpec, LevelSpec, OpeningSpec, RoofSpec, SlabSpec, SpaceSpec, StairSpec, WallSpec
 
 EPS = 1e-6
@@ -182,8 +183,18 @@ def _slabs_and_roofs(design: Design, spec: BuildingSpec) -> None:
         exposed = roofed.difference(above)
         z = spec.level_elevation(lv.id) + lv.height
         for n, poly in enumerate([p for p in _polys(exposed.buffer(half, join_style=2)) if p.area >= MIN_ROOF_AREA], 1):
-            spec.roofs.append(RoofSpec(id=f"roof.{lv.id}.{n}", label=f"{lv.name or lv.id} roof", level=lv.id, outline=list(poly.exterior.coords)[:-1],
-                                       thickness=SLAB_THICKNESS, z_bottom=z))
+            outline = list(poly.exterior.coords)[:-1]
+            kind, pitch, note, extra = "flat", 0.0, "", {}
+            if design.roof != "flat":
+                if is_rectangle(outline):
+                    xs, ys = [p[0] for p in outline], [p[1] for p in outline]
+                    w, d = max(xs) - min(xs), max(ys) - min(ys)
+                    kind, pitch = design.roof, effective_pitch(design.roof, w, d, design.roof_pitch)
+                    extra = {"ridge_along": ridge_axis(w, d), "high_side": (design.roof_high_side or "N") if kind == "shed" else None}
+                else:
+                    note = f"{lv.name or lv.id} roof is kept flat: a {design.roof} roof needs a plain rectangle and this area is not one"
+            spec.roofs.append(RoofSpec(id=f"roof.{lv.id}.{n}", label=f"{lv.name or lv.id} roof", level=lv.id, outline=outline, thickness=SLAB_THICKNESS, z_bottom=z,
+                                       kind=kind, pitch=pitch, note=note, **extra))
 
 
 def _stairs(design: Design, spec: BuildingSpec) -> None:

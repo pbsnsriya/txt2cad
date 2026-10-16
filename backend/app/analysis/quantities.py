@@ -5,6 +5,7 @@ No prices here. Costs depend on place and date, so the app only multiplies these
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from shapely.geometry import Polygon
@@ -38,8 +39,12 @@ def quantities(spec: BuildingSpec) -> dict[str, Any]:
         row("Floors", f"{lv.name or lv.id}: slab", slab, "m2", f"{thick * 1000:.0f} mm thick, stairwell deducted")
         row("Floors", f"{lv.name or lv.id}: slab volume", slab * thick, "m3")
         assert len(rows) > rows_before
-    roof = sum(_poly_area(r.outline, []) for r in spec.roofs)
-    row("Roof", "Roof (flat)", roof, "m2")
+    by_type: dict[tuple[str, float], float] = {}
+    for r in spec.roofs:
+        plan = _poly_area(r.outline, [])
+        by_type[(r.kind, r.pitch)] = by_type.get((r.kind, r.pitch), 0.0) + (plan / math.cos(math.radians(r.pitch)) if r.pitch else plan)
+    for (kind, pitch), area in sorted(by_type.items()):
+        row("Roof", f"Roof ({kind}{f', {pitch:g} deg' if pitch else ''})", area, "m2", "sloped surface, not plan area" if pitch else "")
     materials = sorted({w.material for w in spec.walls if w.external})
     for m in materials:
         row("External walls", f"External wall, {m} (net of openings)", sum(net(w) for w in spec.walls if w.external and w.material == m), "m2",
