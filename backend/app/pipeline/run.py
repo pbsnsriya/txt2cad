@@ -17,7 +17,7 @@ from .. import config
 from ..db import repo
 from ..domain import checks, sizes
 from ..domain.derive import DesignError, derive
-from ..domain.describe import describe, describe_focus
+from ..domain.describe import describe, describe_selection
 from ..domain.design import Design
 from ..domain.steps import SKIPPED_PREFIX
 from ..ifc.compile import compile_ifc
@@ -40,7 +40,7 @@ class RunInput:
     llm_label: str
     base_version: dict[str, Any] | None
     run_id: str
-    focus_guid: str | None = None
+    focus_guids: tuple[str, ...] = ()      # IFC GlobalIds of the parts picked in the viewer
     layout: int | None = None          # 1..3: build the brief again from scratch as that layout option
 
 
@@ -49,7 +49,7 @@ def _user_prompt(prompt: str, design: Design, checklist: list[dict[str, Any]], f
     if design.rooms:
         parts.append(f"CURRENT DESIGN:\n{describe(design)}")
     if focus:
-        parts.append(f"SELECTED IN THE VIEWER: {focus}\n(If the request says 'this', 'it' or 'here', it means that.)")
+        parts.append(focus)
     parts.append(f"REQUEST:\n{prompt}")
     if layout:
         parts.append(layouts.hint(layout))
@@ -61,11 +61,11 @@ def _user_prompt(prompt: str, design: Design, checklist: list[dict[str, Any]], f
 
 
 def _focus_text(inp: RunInput, design: Design, guids: dict[str, str]) -> str | None:
-    """The viewer sends the IFC GlobalId of the clicked element; our guid map says which design element that is."""
-    if not inp.focus_guid or not inp.base_version:
+    """The viewer sends the IFC GlobalIds of the picked parts; our guid map says which design element each one is."""
+    if not inp.focus_guids or not inp.base_version:
         return None
-    element = next((k.split(":", 1)[1] for k, g in guids.items() if g == inp.focus_guid and k.startswith("element:")), None)
-    return describe_focus(design, element) if element else None
+    by_guid = {g: k.split(":", 1)[1] for k, g in guids.items() if k.startswith("element:")}
+    return describe_selection(design, [by_guid[g] for g in inp.focus_guids if g in by_guid])
 
 
 async def run_pipeline(inp: RunInput) -> AsyncIterator[dict[str, Any]]:
@@ -132,7 +132,7 @@ async def _run(inp: RunInput, emit) -> None:
 
     focus = None if fresh else _focus_text(inp, design, guids)
     if focus:
-        await emit("selected", f"Selected: {focus}", text=focus)
+        await emit("selected", focus.split("\n")[0].removeprefix("SELECTED IN THE VIEWER: ").split(".")[0], text=focus)
     previews = PreviewWorker(inp.project_id, inp.run_id, emit, guids)
     approach, feedback, applied_total = "", [], 0
     started_with = len(design.rooms) if (base and not fresh) else None

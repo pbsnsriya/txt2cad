@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, Info, Loader2, MousePointerClick, Scissors } from 'lucide-react';
+import { Box, BoxSelect, Info, Loader2, MousePointerClick, Scissors } from 'lucide-react';
 import { IfcViewer, type Picked, type ViewName } from '../viewer/IfcViewer';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -12,13 +12,14 @@ const VIEWS: { id: ViewName; label: string }[] = [
 ];
 
 export type OnReady = (h: ViewerHandle | null) => void;
-export interface ViewerHandle { load: (url: string, refit?: boolean) => Promise<void>; clear: () => void; applyTheme: () => void; clearSelection: () => void; highlight: (guids: string[]) => Promise<number> }
+export interface ViewerHandle { load: (url: string, refit?: boolean) => Promise<void>; clear: () => void; applyTheme: () => void; clearSelection: () => void; removeFromSelection: (guid: string) => void; highlight: (guids: string[]) => Promise<number> }
 
 /** The 3D canvas plus its overlays. The parent drives it through `onReady` (a handle) so React never re-renders the canvas. */
 export function ViewerPane({ badge, empty, building, theme, onReady, follow, onFollow, selected, onPick }: {
   badge: string; empty: boolean; building: boolean; theme: string; onReady: OnReady; follow: boolean; onFollow: (v: boolean) => void;
-  selected: Picked | null; onPick: (p: Picked | null) => void;
+  selected: Picked[]; onPick: (p: Picked[]) => void;
 }) {
+  const [area, setArea] = useState(false);
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<IfcViewer | null>(null);
   const [section, setSection] = useState(1);
@@ -37,6 +38,7 @@ export function ViewerPane({ badge, empty, building, theme, onReady, follow, onF
       clear: () => v.clear(),
       applyTheme: () => v.applyTheme(),
       clearSelection: () => v.clearSelection(),
+      removeFromSelection: (guid) => void v.deselect(guid),
       highlight: (guids) => v.highlightGuids(guids),
     });
     return () => { onReady(null); v.dispose(); viewer.current = null; };
@@ -45,6 +47,7 @@ export function ViewerPane({ badge, empty, building, theme, onReady, follow, onF
   }, []);
 
   useEffect(() => { viewer.current?.applyTheme(); }, [theme]);
+  useEffect(() => { viewer.current?.setAreaMode(area); }, [area]);
   useEffect(() => { viewer.current?.setSection(section); }, [section]);
 
   const cutMetres = (section * (viewer.current?.height() ?? 0));
@@ -65,19 +68,23 @@ export function ViewerPane({ badge, empty, building, theme, onReady, follow, onF
         {VIEWS.map((v) => (
           <Button key={v.id} size="sm" variant="ghost" className="rounded-pill px-3" onClick={() => viewer.current?.setView(v.id)}>{v.label}</Button>
         ))}
+        <span className="mx-1 w-px self-stretch bg-border" aria-hidden />
+        <Button size="sm" variant={area ? 'primary' : 'ghost'} className="rounded-pill px-3" aria-pressed={area} icon={<BoxSelect className="size-4" aria-hidden />} onClick={() => setArea(!area)}>
+          Select area
+        </Button>
       </div>
       <Card variant="raised" className="absolute bottom-[4.5rem] left-3 hidden max-w-xs items-start gap-2 p-3 text-sm md:flex">
-        {selected ? (
+        {selected.length > 0 ? (
           <div className="flex min-w-0 flex-1 flex-col gap-1" data-testid="selection">
-            <span className="flex items-center gap-1 text-xs font-medium text-muted"><MousePointerClick className="size-3.5" aria-hidden />Selected</span>
-            <span className="truncate font-medium" title={selected.name}>{selected.name || 'Unnamed element'}</span>
-            <span className="text-xs text-muted">{selected.category.replace(/^Ifc/, '') || 'Element'}. Your next message is about it.</span>
-            <Button size="sm" variant="ghost" className="self-start" onClick={() => viewer.current?.clearSelection()}>Unpick</Button>
+            <span className="flex items-center gap-1 text-xs font-medium text-muted"><MousePointerClick className="size-3.5" aria-hidden />{selected.length === 1 ? 'Selected' : `${selected.length} selected`}</span>
+            <span className="truncate font-medium" title={selected.map((s) => s.name).join(', ')}>{selected[0].name || 'Unnamed element'}{selected.length > 1 ? ` and ${selected.length - 1} more` : ''}</span>
+            <span className="text-xs text-muted">{selected.length === 1 ? `${selected[0].category.replace(/^Ifc/, '') || 'Element'}. Your next message is about it.` : 'Your next message is about all of them.'} Shift-click adds or removes one.</span>
+            <Button size="sm" variant="ghost" className="self-start" onClick={() => viewer.current?.clearSelection()}>{selected.length === 1 ? 'Unpick' : 'Unpick all'}</Button>
           </div>
         ) : (
           <>
             <Info className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
-            <span className="pointer-events-none text-muted">Click any part of the building to pick it, then say what to change. Drag to turn it, scroll to zoom.</span>
+            <span className="pointer-events-none text-muted">{area ? 'Drag a box over the part you want. Hold Shift to add to what is already picked.' : 'Click any part of the building to pick it, Shift-click to pick more, or use Select area. Drag to turn it, scroll to zoom.'}</span>
           </>
         )}
       </Card>

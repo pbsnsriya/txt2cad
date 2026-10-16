@@ -62,7 +62,7 @@ export const api = {
 };
 
 /** Run a prompt and yield its events as they arrive. Abort with the signal. */
-export async function* runPrompt(projectId: string, body: { prompt: string; base_version?: number | null; profile_id?: string | null; focus_guid?: string | null; layout?: number | null }, signal: AbortSignal): AsyncGenerator<RunEvent> {
+export async function* runPrompt(projectId: string, body: { prompt: string; base_version?: number | null; profile_id?: string | null; focus_guid?: string | null; focus_guids?: string[]; layout?: number | null }, signal: AbortSignal): AsyncGenerator<RunEvent> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/api/projects/${projectId}/runs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });

@@ -4,6 +4,8 @@ import { cn, focusRing } from './cn';
 import { IconButton } from './Button';
 import { Menu, type MenuEntry } from './Menu';
 
+const MAX_TAGS = 5;
+
 export interface ComposerProps {
   variant?: 'hero' | 'docked';
   placeholder: string;
@@ -16,13 +18,15 @@ export interface ComposerProps {
   onStop?: () => void;
   onAttach?: () => void;
   initialValue?: string;
-  contextLabel?: string;           // what the next message is about (the element selected in the viewer)
+  contexts?: { id: string; label: string }[];   // what the next message is about: the parts picked in the 3D view, one tag each
+  onRemoveContext?: (id: string) => void;
   suggestions?: string[];          // follow-up requests worth trying; picking one fills the box and does not send
   onClearContext?: () => void;
 }
 
 /** Enter sends, Shift+Enter inserts a newline. While running, the send button becomes Stop. */
-export function Composer({ variant = 'hero', placeholder, running, disabled, error, modelLabel, modelEntries, onSubmit, onStop, onAttach, initialValue = '', contextLabel, onClearContext, suggestions = [] }: ComposerProps) {
+export function Composer({ variant = 'hero', placeholder, running, disabled, error, modelLabel, modelEntries, onSubmit, onStop, onAttach, initialValue = '', contexts = [], onRemoveContext, onClearContext, suggestions = [] }: ComposerProps) {
+  const [allTags, setAllTags] = useState(false);
   const [text, setText] = useState(initialValue);
   const ref = useRef<HTMLTextAreaElement>(null);
   const labelId = useId();
@@ -59,10 +63,23 @@ export function Composer({ variant = 'hero', placeholder, running, disabled, err
           'focus-within:border-accent',
         )}
       >
-        {contextLabel && (
-          <div className="flex items-center gap-1 self-start rounded-pill bg-accent-soft px-2 py-0.5 text-xs text-accent-text" data-testid="context-chip">
-            <span className="max-w-64 truncate">Re: {contextLabel}</span>
-            <button type="button" aria-label="Unpick" onClick={onClearContext} className="rounded-pill px-1 hover:bg-accent/20">x</button>
+        {contexts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 self-start text-xs" data-testid="context-chip" aria-label="What your message is about">
+            <span className="text-muted">Re:</span>
+            {(allTags ? contexts : contexts.slice(0, MAX_TAGS)).map((c) => (
+              <span key={c.id} className="flex items-center gap-1 rounded-pill bg-accent-soft px-2 py-0.5 text-accent-text" data-testid="tag">
+                <span className="max-w-48 truncate" title={c.label}>{c.label}</span>
+                <button type="button" aria-label={`Unpick ${c.label}`} onClick={() => onRemoveContext?.(c.id)} className="rounded-pill px-1 hover:bg-accent/20">x</button>
+              </span>
+            ))}
+            {contexts.length > MAX_TAGS && (
+              <button type="button" onClick={() => setAllTags(!allTags)} className={cn('rounded-pill px-2 py-0.5 text-muted hover:text-fg', focusRing)}>
+                {allTags ? 'Show fewer' : `+${contexts.length - MAX_TAGS} more`}
+              </button>
+            )}
+            {contexts.length > 1 && (
+              <button type="button" onClick={onClearContext} className={cn('rounded-pill px-2 py-0.5 text-muted underline hover:text-fg', focusRing)}>Unpick all</button>
+            )}
           </div>
         )}
         <label id={labelId} htmlFor={`${labelId}-ta`} className="sr-only">Describe what to build</label>

@@ -6,6 +6,7 @@ export interface PhaseLog { name: string; steps: StepLine[]; errors: string[] }
 export interface RunView {
   status: 'idle' | 'running' | 'done' | 'error';
   prompt: string;
+  tags: string[];                 // what was picked in the 3D view when the request was sent
   model: string;
   checklist: { text: string; supported: boolean }[];
   approach: string;
@@ -24,12 +25,12 @@ export interface RunView {
 }
 
 export const emptyRun: RunView = {
-  status: 'idle', prompt: '', model: '', checklist: [], approach: '', phases: [], draft: '', verify: [], verifyText: '', error: '',
+  status: 'idle', prompt: '', tags: [], model: '', checklist: [], approach: '', phases: [], draft: '', verify: [], verifyText: '', error: '',
   previews: 0, elements: 0, summary: '', notes: [], ifcUrl: '', number: 0, seconds: 0,
 };
 
-export function startRun(prompt: string): RunView {
-  return { ...emptyRun, status: 'running', prompt };
+export function startRun(prompt: string, tags: string[] = []): RunView {
+  return { ...emptyRun, status: 'running', prompt, tags };
 }
 
 export function reduceRun(run: RunView, ev: RunEvent): RunView {

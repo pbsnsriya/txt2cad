@@ -17,7 +17,7 @@ export function Trace({ run }: { run: RunView }) {
   const lastIndex = phases.length - 1;
   return (
     <div className="flex flex-col gap-4" aria-label="Run trace">
-      <Card variant="sunken" className="text-sm"><span className="font-medium">Your request:</span> {run.prompt}</Card>
+      <Card variant="sunken" className="text-sm"><span className="font-medium">Your request:</span> {run.prompt}{run.tags.length > 0 && <span className="mt-1 block text-xs text-muted" data-testid="run-tags">About: {run.tags.join(', ')}</span>}</Card>
       <TraceSection title="Understanding the request" state={run.checklist.length || run.status !== 'running' ? 'done' : 'active'}
         rationale={run.approach || undefined} stepsLabel="requirement" steps={run.checklist.map((c) => c.text + (c.supported ? '' : ' (not supported yet)'))} />
       {phases.map((p, i) => (

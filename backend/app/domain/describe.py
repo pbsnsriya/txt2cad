@@ -58,6 +58,58 @@ def describe_focus(design: Design, element_id: str) -> str | None:
     return None
 
 
+MAX_LISTED = 30
+
+
+def _rooms_in(design: Design, element_id: str, pieces) -> set[str]:
+    """The rooms an element belongs to or separates."""
+    for d in design.doors:
+        if d.id == element_id:
+            return {d.room} | ({d.to} if d.to != "outside" else set())
+    for w in design.windows:
+        if w.id == element_id:
+            return {w.room}
+    for s in design.stairs:
+        if s.id == element_id:
+            return {s.room}
+    for r in design.rooms:
+        if element_id == f"room.{r.level}.{r.id}":
+            return {r.id}
+    for p in pieces:
+        if p.id == element_id:
+            return {p.room} | ({p.other} if p.other else set())
+    return set()
+
+
+def describe_selection(design: Design, element_ids: list[str], limit: int = MAX_LISTED) -> str | None:
+    """Everything picked in the viewer, as one block for the model: each part in words, then the rooms they belong to. None when no id is known."""
+    try:
+        pieces = wall_pieces(design)
+    except DesignError:
+        pieces = []
+    known: list[tuple[str, str]] = []
+    for eid in dict.fromkeys(element_ids):
+        text = describe_focus(design, eid)
+        if text:
+            known.append((eid, text))
+    if not known:
+        return None
+    n = len(known)
+    lines = [f"SELECTED IN THE VIEWER: {n} element{'s' if n != 1 else ''}. When the request says this, these, it, them, here or \"the selected\", "
+             "it means exactly these parts; change nothing else."]
+    lines += [f"- {text}" for _, text in known[:limit]]
+    if n > limit:
+        lines.append(f"- ...and {n - limit} more")
+    involved: list[str] = []
+    for eid, _ in known:
+        for rid in sorted(_rooms_in(design, eid, pieces)):
+            if rid not in involved:
+                involved.append(rid)
+    if involved:
+        lines.append("ROOMS INVOLVED: " + ", ".join(f"{rid} '{design.room(rid).name}'" for rid in involved if design.room(rid)))
+    return "\n".join(lines)
+
+
 def _name(design: Design, room_id: str) -> str:
     r = design.room(room_id)
     return f"{r.name} ({r.id})" if r else room_id

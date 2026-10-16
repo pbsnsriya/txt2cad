@@ -37,3 +37,10 @@ describe('reduceRun', () => {
     expect(JSON.stringify(before)).toBe(frozen);
   });
 });
+
+describe('what a request was about', () => {
+  it('keeps the tags of the parts that were picked', () => {
+    expect(startRun('make these bigger', ['Kitchen', 'Living']).tags).toEqual(['Kitchen', 'Living']);
+    expect(startRun('a house').tags).toEqual([]);
+  });
+});

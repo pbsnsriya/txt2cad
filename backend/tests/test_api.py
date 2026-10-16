@@ -149,7 +149,7 @@ def test_the_selected_element_reaches_the_model_as_words(client, monkeypatch):
     monkeypatch.setattr(routes, "make_llm", lambda profile: Spy())
     evs = run(client, pid, "make this room bigger", base_version=1, focus_guid=guid)
     build = [r for r in seen if r.schema_name == "build"][0]
-    assert "SELECTED IN THE VIEWER: the room kitchen 'Kitchen'" in build.user
+    assert "SELECTED IN THE VIEWER: 1 element" in build.user and "the room kitchen 'Kitchen'" in build.user
     assert any(e["stage"] == "selected" for e in evs)
     seen.clear()
     run(client, pid, "make this room bigger", base_version=2, focus_guid="0" * 22)      # an unknown id is ignored, not an error

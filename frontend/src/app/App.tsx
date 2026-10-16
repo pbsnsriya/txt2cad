@@ -36,6 +36,11 @@ function dataNote(p: Profile): string {
   return `${p.model || 'Model'}: your request and design are sent to ${host}`;
 }
 
+/** The tag for a picked part: its name, or its kind when it has none. */
+function tagLabel(p: Picked): string {
+  return p.name || p.category.replace(/^Ifc/, '') || 'Element';
+}
+
 function readStored(key: string): string | null { try { return localStorage.getItem(key); } catch { return null; } }
 function writeStored(key: string, v: string): void { try { localStorage.setItem(key, v); } catch { /* storage may be blocked */ } }
 
@@ -57,7 +62,7 @@ export function App() {
   const [deleting, setDeleting] = useState<ProjectRow | null>(null);
   const [tab, setTab] = useState('3d');
   const [follow, setFollow] = useState(true);
-  const [selected, setSelected] = useState<Picked | null>(null);
+  const [selected, setSelected] = useState<Picked[]>([]);
   const followRef = useRef(true);
   followRef.current = follow;
   const submitting = useRef(false);
@@ -139,22 +144,23 @@ export function App() {
       }
     } catch (e) { setError((e as Error).message); submitting.current = false; return; }
     try {
-      await execute(project, prompt, { base: detail?.head?.number ?? null, focus: selected?.guid || null });
+      await execute(project, prompt, { base: detail?.head?.number ?? null, focus: selected });
     } finally {
       submitting.current = false;
     }
   }
 
   /** One streamed run. Returns whether it ended with a saved version. */
-  async function execute(project: ProjectRow, prompt: string, opts: { base: number | null; focus?: string | null; layout?: number }): Promise<boolean> {
+  async function execute(project: ProjectRow, prompt: string, opts: { base: number | null; focus?: Picked[]; layout?: number }): Promise<boolean> {
     const ctrl = new AbortController();
     abort.current = ctrl;
-    setRun(startRun(prompt));
+    const tags = (opts.focus ?? []).map(tagLabel);
+    setRun(startRun(prompt, tags));
     setBusy(true);
-    let latest = startRun(prompt);
+    let latest = startRun(prompt, tags);
     let saved = false;
     try {
-      for await (const ev of runPrompt(project.id, { prompt, base_version: opts.base, profile_id: profileId, focus_guid: opts.focus ?? null, layout: opts.layout ?? null }, ctrl.signal)) {
+      for await (const ev of runPrompt(project.id, { prompt, base_version: opts.base, profile_id: profileId, focus_guids: (opts.focus ?? []).map((f) => f.guid), layout: opts.layout ?? null }, ctrl.signal)) {
         latest = reduceRun(latest, ev);
         setRun(latest);
         if (ev.stage === 'preview') showModel(api.absolute(ev.data.url), followRef.current);
@@ -298,7 +304,7 @@ export function App() {
                 <Composer key={`${detail?.project.id ?? 'new'}-${initialPrompt}`} variant="docked" initialValue={initialPrompt}
                   placeholder={detail?.head ? 'What should change?' : 'Describe the building you want...'} modelLabel={modelLabel} modelEntries={modelEntries}
                   running={building} disabled={!backend.ok} error={error || undefined} suggestions={head?.suggestions}
-                  contextLabel={selected ? (selected.name || selected.category.replace(/^Ifc/, '')) : undefined} onClearContext={() => viewer.current?.clearSelection()} onSubmit={(t) => void submit(t)} onStop={() => abort.current?.abort()} />
+                  contexts={selected.map((s) => ({ id: s.guid, label: tagLabel(s) }))} onRemoveContext={(id) => viewer.current?.removeFromSelection(id)} onClearContext={() => viewer.current?.clearSelection()} onSubmit={(t) => void submit(t)} onStop={() => abort.current?.abort()} />
               </div>
             </aside>
           </main>

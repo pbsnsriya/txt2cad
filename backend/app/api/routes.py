@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import Any, AsyncIterator
 
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
@@ -117,7 +119,8 @@ class RunBody(BaseModel):
     prompt: str = Field(min_length=1, max_length=8000)
     base_version: int | None = None
     profile_id: str | None = None
-    focus_guid: str | None = Field(None, max_length=64)   # IFC GlobalId of the element selected in the viewer
+    focus_guid: str | None = Field(None, max_length=64)   # IFC GlobalId of one element selected in the viewer
+    focus_guids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=200)   # ...or of several
     layout: int | None = Field(None, ge=1, le=3)          # build the prompt again from scratch as layout option 1..3; saved as the next version
 
 
@@ -137,7 +140,7 @@ async def run(pid: str, body: RunBody) -> StreamingResponse:
         raise HTTPException(409, f"the project is at version {head['number'] if head else 0}, not {body.base_version}; reload and try again")
     llm = make_llm(profile)
     run_id = repo.create_run(OWNER, pid, body.prompt, head["id"] if head else None, profile["id"])
-    inp = RunInput(OWNER, pid, body.prompt, llm, f"{profile['provider']}/{profile['model'] or profile['name']}", head, run_id, body.focus_guid, body.layout)
+    inp = RunInput(OWNER, pid, body.prompt, llm, f"{profile['provider']}/{profile['model'] or profile['name']}", head, run_id, tuple(dict.fromkeys([*([body.focus_guid] if body.focus_guid else []), *body.focus_guids])), body.layout)
 
     async def stream() -> AsyncIterator[str]:
         agen = run_pipeline(inp)

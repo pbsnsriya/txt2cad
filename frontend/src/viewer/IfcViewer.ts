@@ -9,6 +9,10 @@ export type ViewName = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 
 export interface LoadStats { box: THREE.Box3 }
 export interface Picked { guid: string; name: string; category: string }
 
+/** Parts of a model that are not things a person points at: the voids cut for doors and windows. */
+const NOT_PICKABLE = new Set(['IfcOpeningElement']);
+const MAX_PICKED = 80;
+
 export class IfcViewer {
   private components = new OBC.Components();
   private world!: OBC.SimpleWorld<OBC.SimpleScene, OBC.SimpleCamera, OBC.SimpleRenderer>;
@@ -21,16 +25,26 @@ export class IfcViewer {
   private disposed = false;               // React StrictMode mounts, disposes and re-mounts; async init must notice
   private resizeObserver: ResizeObserver;
   onLoaded?: (stats: LoadStats) => void;
-  onPick?: (picked: Picked | null) => void;
+  onPick?: (picked: Picked[]) => void;
   private downAt: { x: number; y: number } | null = null;
+  private picked = new Map<number, Picked>();      // what is selected, by the model's local id
+  private areaMode = false;
+  private rectStart: { x: number; y: number } | null = null;
+  private rectEl: HTMLDivElement | null = null;
 
   constructor(private container: HTMLElement) {
     this.ready = this.init();
     this.resizeObserver = new ResizeObserver(() => this.world?.renderer?.resize());
     this.resizeObserver.observe(container);
     // A click is a press and release that did not move: dragging orbits the camera and must not select anything.
-    container.addEventListener('pointerdown', (e) => { this.downAt = { x: e.clientX, y: e.clientY }; });
+    // In area mode a drag draws a box instead and selects whatever the box touches.
+    container.addEventListener('pointerdown', (e) => {
+      if (this.areaMode) { this.beginBox(e); return; }
+      this.downAt = { x: e.clientX, y: e.clientY };
+    });
+    container.addEventListener('pointermove', (e) => { if (this.rectStart) this.moveBox(e); });
     container.addEventListener('pointerup', (e) => {
+      if (this.rectStart) { void this.endBox(e); return; }
       const d = this.downAt;
       this.downAt = null;
       if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) void this.pick(e);
@@ -66,22 +80,111 @@ export class IfcViewer {
   }
 
 
-  /** Select the element under the pointer: highlight it and report its IFC GlobalId, name and class. */
+  /** Click: select the part under the pointer. Shift, Ctrl or Cmd adds it to the selection, or takes it out if it is already in. */
   private async pick(e: PointerEvent): Promise<void> {
     const model = this.model;
     const renderer = this.world.renderer;
     if (!model || !renderer) return;
     const hit = await model.raycast({ camera: this.world.camera.three, mouse: new THREE.Vector2(e.clientX, e.clientY), dom: renderer.three.domElement });
+    const add = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (!hit) { if (!add) await this.setPicked([]); return; }
+    if (add && this.picked.has(hit.localId)) { this.picked.delete(hit.localId); await this.showPicked(); return; }
+    const [item] = await this.describe([hit.localId]);
+    if (!item) return;
+    if (!add) this.picked.clear();
+    this.picked.set(hit.localId, item.picked);
+    await this.showPicked();
+  }
+
+  /** Name, class and GlobalId of some local ids, leaving out the voids. */
+  private async describe(ids: number[]): Promise<{ id: number; picked: Picked }[]> {
+    const model = this.model;
+    if (!model || !ids.length) return [];
+    const [guids, data] = await Promise.all([model.getGuidsByLocalIds(ids), model.getItemsData(ids)]);
+    const attr = (row: unknown, k: string): string => String((row as Record<string, { value?: unknown }> | undefined)?.[k]?.value ?? '');
+    const out: { id: number; picked: Picked }[] = [];
+    ids.forEach((id, i) => {
+      const category = attr(data[i], '_category');
+      if (NOT_PICKABLE.has(category) || !guids[i]) return;
+      out.push({ id, picked: { guid: guids[i] as string, name: attr(data[i], 'Name'), category } });
+    });
+    return out;
+  }
+
+  private async setPicked(items: { id: number; picked: Picked }[]): Promise<void> {
+    this.picked = new Map(items.slice(0, MAX_PICKED).map((i) => [i.id, i.picked]));
+    await this.showPicked();
+  }
+
+  /** Paint the selection and tell the page what it is. */
+  private async showPicked(): Promise<void> {
     await this.fragments.resetHighlight();
-    if (!hit) { this.onPick?.(null); return; }
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--tk-accent').trim() || '#2f5bea';
-    await this.fragments.highlight(
-      { color: new THREE.Color(accent), renderedFaces: FRAGS.RenderedFaces.ONE, opacity: 1, transparent: false },
-      { [model.modelId]: new Set([hit.localId]) },
-    );
-    const [guids, data] = await Promise.all([model.getGuidsByLocalIds([hit.localId]), model.getItemsData([hit.localId])]);
-    const attr = (k: string): string => String((data[0] as Record<string, { value?: unknown }> | undefined)?.[k]?.value ?? '');
-    this.onPick?.({ guid: guids[0] ?? '', name: attr('Name'), category: attr('_category') });
+    const model = this.model;
+    if (model && this.picked.size) {
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--tk-accent').trim() || '#2f5bea';
+      await this.fragments.highlight({ color: new THREE.Color(accent), renderedFaces: FRAGS.RenderedFaces.ONE, opacity: 1, transparent: false }, { [model.modelId]: new Set(this.picked.keys()) });
+    }
+    this.onPick?.([...this.picked.values()]);
+  }
+
+  // --- area selection: drag a box, take everything it touches -------------------------------------------------------------
+  setAreaMode(on: boolean): void {
+    this.areaMode = on;
+    if (this.world?.camera) this.world.camera.controls.enabled = !on;      // the drag draws a box instead of turning the model
+    this.container.style.cursor = on ? 'crosshair' : '';
+    if (!on) this.removeBox();
+  }
+
+  private beginBox(e: PointerEvent): void {
+    const r = this.container.getBoundingClientRect();
+    this.rectStart = { x: e.clientX, y: e.clientY };
+    const el = document.createElement('div');
+    el.setAttribute('data-testid', 'area-box');
+    el.style.cssText = 'position:absolute;pointer-events:none;border:2px dashed var(--tk-accent,#2f5bea);background:rgba(47,91,234,0.12);z-index:5;';
+    el.style.left = `${e.clientX - r.left}px`;
+    el.style.top = `${e.clientY - r.top}px`;
+    this.container.appendChild(el);
+    this.rectEl = el;
+  }
+
+  private moveBox(e: PointerEvent): void {
+    if (!this.rectStart || !this.rectEl) return;
+    const r = this.container.getBoundingClientRect();
+    this.rectEl.style.left = `${Math.min(this.rectStart.x, e.clientX) - r.left}px`;
+    this.rectEl.style.top = `${Math.min(this.rectStart.y, e.clientY) - r.top}px`;
+    this.rectEl.style.width = `${Math.abs(e.clientX - this.rectStart.x)}px`;
+    this.rectEl.style.height = `${Math.abs(e.clientY - this.rectStart.y)}px`;
+  }
+
+  private removeBox(): void {
+    this.rectEl?.remove();
+    this.rectEl = null;
+    this.rectStart = null;
+  }
+
+  private async endBox(e: PointerEvent): Promise<void> {
+    const start = this.rectStart;
+    this.removeBox();
+    const model = this.model;
+    const renderer = this.world.renderer;
+    if (!start || !model || !renderer) return;
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;       // a click in area mode selects nothing
+    const result = await model.rectangleRaycast({
+      camera: this.world.camera.three, dom: renderer.three.domElement, fullyIncluded: false,
+      topLeft: new THREE.Vector2(Math.min(start.x, e.clientX), Math.min(start.y, e.clientY)),
+      bottomRight: new THREE.Vector2(Math.max(start.x, e.clientX), Math.max(start.y, e.clientY)),
+    });
+    const found = await this.describe(result?.localIds ?? []);
+    if (e.shiftKey || e.ctrlKey || e.metaKey) for (const f of found) this.picked.set(f.id, f.picked);
+    else this.picked = new Map(found.map((f) => [f.id, f.picked]));
+    while (this.picked.size > MAX_PICKED) this.picked.delete(this.picked.keys().next().value as number);
+    await this.showPicked();
+  }
+
+  /** Take one part out of the selection (the tag in the chat was closed). */
+  async deselect(guid: string): Promise<void> {
+    for (const [id, p] of this.picked) if (p.guid === guid) this.picked.delete(id);
+    await this.showPicked();
   }
 
   /** Highlight the elements with these IFC GlobalIds (for "Show in model"). Returns how many were found. */
@@ -97,8 +200,9 @@ export class IfcViewer {
   }
 
   clearSelection(): void {
+    this.picked.clear();
     void this.fragments?.resetHighlight();
-    this.onPick?.(null);
+    this.onPick?.([]);
   }
 
   /** Background follows the app theme token, read at call time so a theme switch only needs applyTheme(). */
@@ -123,7 +227,8 @@ export class IfcViewer {
     }
     const previous = this.model;
     this.model = next;
-    this.onPick?.(null);                    // a new model: any old selection is gone
+    this.picked.clear();
+    this.onPick?.([]);                      // a new model: any old selection is gone
     if (previous) {
       this.world.scene.three.remove(previous.object);
       await this.fragments.core.disposeModel(previous.modelId);
