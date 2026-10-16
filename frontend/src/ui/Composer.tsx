@@ -17,11 +17,12 @@ export interface ComposerProps {
   onAttach?: () => void;
   initialValue?: string;
   contextLabel?: string;           // what the next message is about (the element selected in the viewer)
+  suggestions?: string[];          // follow-up requests worth trying; picking one fills the box and does not send
   onClearContext?: () => void;
 }
 
 /** Enter sends, Shift+Enter inserts a newline. While running, the send button becomes Stop. */
-export function Composer({ variant = 'hero', placeholder, running, disabled, error, modelLabel, modelEntries, onSubmit, onStop, onAttach, initialValue = '', contextLabel, onClearContext }: ComposerProps) {
+export function Composer({ variant = 'hero', placeholder, running, disabled, error, modelLabel, modelEntries, onSubmit, onStop, onAttach, initialValue = '', contextLabel, onClearContext, suggestions = [] }: ComposerProps) {
   const [text, setText] = useState(initialValue);
   const ref = useRef<HTMLTextAreaElement>(null);
   const labelId = useId();
@@ -33,8 +34,23 @@ export function Composer({ variant = 'hero', placeholder, running, disabled, err
     setText('');
   };
 
+  const pick = (s: string) => {
+    setText(s);
+    ref.current?.focus();
+  };
+
   return (
     <div className="w-full">
+      {suggestions.length > 0 && !running && (
+        <div role="group" aria-label="Suggested next requests" className="mb-2 flex flex-wrap gap-1.5" data-testid="suggestions">
+          {suggestions.map((s) => (
+            <button key={s} type="button" onClick={() => pick(s)} disabled={disabled}
+              className={cn('rounded-pill border border-border bg-surface px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-fg disabled:opacity-50', focusRing)}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
       <div
         className={cn(
           'flex flex-col gap-2 border bg-surface p-3 shadow-card',

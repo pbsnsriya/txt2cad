@@ -50,6 +50,12 @@ function Checklist({ run }: { run: RunView }) {
   );
 }
 
+/** "Layout option 2 (Open plan): the living area faces south." out of a version summary, when it has one. */
+function layoutNote(summary: string): string | null {
+  const m = summary.match(/Layout option \d \([^)]+\): .*$/);
+  return m ? m[0] : null;
+}
+
 export function VersionList({ detail, viewing, onOpen, onRestore, onDownload, busy }: {
   detail: ProjectDetail; viewing: number; onOpen: (n: number) => void; onRestore: (n: number) => void; onDownload: (n: number, f: string) => void; busy: boolean;
 }) {
@@ -71,6 +77,7 @@ export function VersionList({ detail, viewing, onOpen, onRestore, onDownload, bu
             </div>
           </div>
           <p className="line-clamp-2 text-sm text-muted" title={v.prompt}>{v.prompt}</p>
+          {layoutNote(v.summary) && <p className="text-xs text-fg">{layoutNote(v.summary)}</p>}
         </Card>
       ))}
     </section>

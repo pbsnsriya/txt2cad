@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, ChevronDown, Download, FileText, FolderOpen, Moon, Receipt, ShieldCheck, Sun } from 'lucide-react';
+import { Box, ChevronDown, Download, FileText, FolderOpen, LayoutGrid, Moon, Receipt, ShieldCheck, Sun } from 'lucide-react';
 import { ApiError, api, runPrompt, type Analysis, type Profile, type ProjectDetail, type ProjectRow } from '../api/client';
 import { emptyRun, reduceRun, startRun, type RunView } from '../state/run';
 import { Badge } from '../ui/Badge';
@@ -27,6 +27,14 @@ const STARTER_PROMPTS: Record<string, string> = {
   'Cabin with one bedroom': 'A small one storey cabin with one bedroom and a kitchen.',
 };
 const ASSISTANT_DEFAULT = 380;
+
+/** Where a model profile sends what you type. Said in the menu, so the choice is made with the facts in front of you. */
+function dataNote(p: Profile): string {
+  if (p.provider === 'mock') return 'Runs on this computer. Nothing is sent anywhere.';
+  let host = p.base_url;
+  try { host = new URL(p.base_url).hostname; } catch { /* keep the raw value */ }
+  return `${p.model || 'Model'}: your request and design are sent to ${host}`;
+}
 
 function readStored(key: string): string | null { try { return localStorage.getItem(key); } catch { return null; } }
 function writeStored(key: string, v: string): void { try { localStorage.setItem(key, v); } catch { /* storage may be blocked */ } }
@@ -130,17 +138,28 @@ export function App() {
         writeStored('project', project.id);
       }
     } catch (e) { setError((e as Error).message); submitting.current = false; return; }
+    try {
+      await execute(project, prompt, { base: detail?.head?.number ?? null, focus: selected?.guid || null });
+    } finally {
+      submitting.current = false;
+    }
+  }
+
+  /** One streamed run. Returns whether it ended with a saved version. */
+  async function execute(project: ProjectRow, prompt: string, opts: { base: number | null; focus?: string | null; layout?: number }): Promise<boolean> {
     const ctrl = new AbortController();
     abort.current = ctrl;
     setRun(startRun(prompt));
     setBusy(true);
     let latest = startRun(prompt);
+    let saved = false;
     try {
-      for await (const ev of runPrompt(project.id, { prompt, base_version: detail?.head?.number ?? null, profile_id: profileId, focus_guid: selected?.guid || null }, ctrl.signal)) {
+      for await (const ev of runPrompt(project.id, { prompt, base_version: opts.base, profile_id: profileId, focus_guid: opts.focus ?? null, layout: opts.layout ?? null }, ctrl.signal)) {
         latest = reduceRun(latest, ev);
         setRun(latest);
         if (ev.stage === 'preview') showModel(api.absolute(ev.data.url), followRef.current);
         if (ev.stage === 'finished') {
+          saved = true;
           await openProject(project.id, undefined, followRef.current);
           setRun(latest);
           void refreshProjects();
@@ -152,9 +171,27 @@ export function App() {
       setRun(latest);
       setError(msg);
     } finally {
-      submitting.current = false;
       setBusy(false);
       if (latest.status === 'running') setRun({ ...latest, status: 'error', error: 'The run ended without a result.' });
+    }
+    return saved;
+  }
+
+  /** The first request built three more ways, one after the other. Each is saved as a new version; stopping ends the series. */
+  async function tryLayouts(): Promise<void> {
+    if (submitting.current || !detail?.head) return;
+    const project = detail.project;
+    const first = detail.versions.find((v) => v.number === 1) ?? { prompt: detail.head.prompt };
+    const brief = first.prompt.replace(/ \[layout option [^\]]*\]$/, '');
+    submitting.current = true;
+    setError('');
+    try {
+      for (let k = 1; k <= 3; k++) {
+        const fresh = await api.project(project.id);
+        if (!(await execute(project, brief, { base: fresh.head?.number ?? null, layout: k }))) break;
+      }
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -182,7 +219,7 @@ export function App() {
   }
 
   const modelEntries: MenuEntry[] = useMemo(() => profiles.map((p) => ({
-    id: p.id, title: `${p.name}${p.id === profileId ? ' (selected)' : ''}`, description: p.model || (p.provider === 'mock' ? 'No network, simple designs' : 'Set a model'),
+    id: p.id, title: `${p.name}${p.id === profileId ? ' (selected)' : ''}`, description: dataNote(p),
     disabledReason: p.ready ? undefined : p.model ? `Set the ${p.name} key in the backend environment` : 'Choose a model first', onSelect: () => setProfileId(p.id),
   })), [profiles, profileId]);
   const modelLabel = profiles.find((p) => p.id === profileId)?.name ?? 'Model';
@@ -245,6 +282,12 @@ export function App() {
                 {detail && head && run.status !== 'running' && (
                   <div className="mt-4 flex flex-col gap-4">
                     {run.status === 'idle' && <p className="text-sm text-muted">{head.summary}</p>}
+                    <div className="flex flex-col items-start gap-1">
+                      <Button size="sm" variant="secondary" icon={<LayoutGrid className="size-4" aria-hidden />} disabled={busy || !backend.ok} onClick={() => void tryLayouts()}>
+                        Try 3 other layouts
+                      </Button>
+                      <p className="text-xs text-muted">Builds your first request three more ways. Each one is saved as a new version.</p>
+                    </div>
                     <VersionList detail={detail} viewing={viewing} busy={busy} onDownload={download} onRestore={(n) => void restore(n)}
                       onOpen={(n) => { setViewing(n); showModel(api.ifcUrl(detail.project.id, n)); }} />
                   </div>
@@ -254,7 +297,7 @@ export function App() {
               <div className="border-t border-border p-3">
                 <Composer key={`${detail?.project.id ?? 'new'}-${initialPrompt}`} variant="docked" initialValue={initialPrompt}
                   placeholder={detail?.head ? 'What should change?' : 'Describe the building you want...'} modelLabel={modelLabel} modelEntries={modelEntries}
-                  running={building} disabled={!backend.ok} error={error || undefined}
+                  running={building} disabled={!backend.ok} error={error || undefined} suggestions={head?.suggestions}
                   contextLabel={selected ? (selected.name || selected.category.replace(/^Ifc/, '')) : undefined} onClearContext={() => viewer.current?.clearSelection()} onSubmit={(t) => void submit(t)} onStop={() => abort.current?.abort()} />
               </div>
             </aside>

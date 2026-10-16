@@ -9,6 +9,7 @@ backend/.env
 frontend/node_modules/
 frontend/dist/
 frontend/public/wasm/
+frontend/public/vendor/
 
 # e2e
 e2e/node_modules/

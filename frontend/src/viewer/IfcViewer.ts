@@ -50,7 +50,8 @@ export class IfcViewer {
     this.world.camera.controls.setLookAt(14, 12, 14, 0, 0, 0);
     this.components.get(OBC.Grids).create(this.world);
     this.fragments = this.components.get(OBC.FragmentsManager);
-    const workerUrl = await OBC.FragmentsManager.getWorker();
+    // The library's own getWorker() downloads this file from unpkg.com on every start. It is shipped with the app instead (scripts/copy-wasm.mjs).
+    const workerUrl = '/vendor/fragments-worker.mjs';
     if (this.disposed) return;
     this.fragments.init(workerUrl);
     // Fragments throws "No camera initialized" if asked to update before any model has been given the camera.

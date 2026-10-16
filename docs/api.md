@@ -11,9 +11,9 @@ All routes are under `/api`, JSON unless noted. The server accepts requests from
 | `GET /projects/{id}` | The project, its head version (design, checklist, notes) and the version list. |
 | `PATCH /projects/{id}` | Rename. |
 | `DELETE /projects/{id}` | Delete the project, its versions and its files. |
-| `POST /projects/{id}/runs` | **SSE.** Run a prompt. Body: `{prompt, base_version?, profile_id?, focus_guid?}`. `focus_guid` is the IFC GlobalId of the element selected in the viewer. A stale `base_version` answers 409. |
+| `POST /projects/{id}/runs` | **SSE.** Run a prompt. Body: `{prompt, base_version?, profile_id?, focus_guid?, layout?}`. `layout` (1 to 3) builds the prompt again from scratch as that layout option and saves it as the next version. `focus_guid` is the IFC GlobalId of the element selected in the viewer. A stale `base_version` answers 409. |
 | `GET /files/previews/{project}/{run}/{n}.ifc` | A preview IFC announced by a `preview` event. Served by validated ids; old ones are pruned. |
-| `GET /projects/{id}/versions/{n}` | One version's record. |
+| `GET /projects/{id}/versions/{n}` | One version's record, with `suggestions`: up to three follow-up requests worth trying, taken from the design. |
 | `GET /projects/{id}/versions/{n}/ifc` | The IFC file. |
 | `GET /projects/{id}/versions/{n}/export?format=` | One of `ifc, dxf, svg, spec_json, design_json`. |
 | `GET /projects/{id}/versions/{n}/drawing` | The plans as an inline SVG (the Plans tab). |

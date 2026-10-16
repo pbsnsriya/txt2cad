@@ -18,6 +18,7 @@ from ..analysis.quantities import quantities
 from ..analysis.review import review
 from ..domain.design import Design
 from ..domain.spec import BuildingSpec
+from ..domain.suggest import suggest
 from ..export.dxf import dxf_text
 from ..export.svg import svg_text
 from ..llm.base import LLM
@@ -104,8 +105,10 @@ def _public_version(v: dict[str, Any] | None) -> dict[str, Any] | None:
     if v is None:
         return None
     reqs = repo.version_requirements(OWNER, v["id"])
+    design = json.loads(v["design_json"])
     return {"id": v["id"], "number": v["number"], "mode": v["mode"], "prompt": v["prompt"], "llm": v["llm_label"], "approach": v["approach"],
-            "summary": v["summary"], "notes": json.loads(v["notes_json"]), "design": json.loads(v["design_json"]), "created_at": v["created_at"],
+            "summary": v["summary"], "notes": json.loads(v["notes_json"]), "design": design, "created_at": v["created_at"],
+            "suggestions": suggest(Design.model_validate(design)),
             "requirements": [{"kind": r["kind"], "text": r["text"], "supported": bool(r["supported"]), "status": r["status"], "detail": r["detail"]} for r in reqs]}
 
 
@@ -115,6 +118,7 @@ class RunBody(BaseModel):
     base_version: int | None = None
     profile_id: str | None = None
     focus_guid: str | None = Field(None, max_length=64)   # IFC GlobalId of the element selected in the viewer
+    layout: int | None = Field(None, ge=1, le=3)          # build the prompt again from scratch as layout option 1..3; saved as the next version
 
 
 def sse(event: dict[str, Any], seq: int) -> str:
@@ -133,7 +137,7 @@ async def run(pid: str, body: RunBody) -> StreamingResponse:
         raise HTTPException(409, f"the project is at version {head['number'] if head else 0}, not {body.base_version}; reload and try again")
     llm = make_llm(profile)
     run_id = repo.create_run(OWNER, pid, body.prompt, head["id"] if head else None, profile["id"])
-    inp = RunInput(OWNER, pid, body.prompt, llm, f"{profile['provider']}/{profile['model'] or profile['name']}", head, run_id, body.focus_guid)
+    inp = RunInput(OWNER, pid, body.prompt, llm, f"{profile['provider']}/{profile['model'] or profile['name']}", head, run_id, body.focus_guid, body.layout)
 
     async def stream() -> AsyncIterator[str]:
         agen = run_pipeline(inp)

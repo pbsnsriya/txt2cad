@@ -2,12 +2,12 @@
 
 export const API_BASE: string = import.meta.env.VITE_API ?? 'http://127.0.0.1:8770';
 
-export interface Profile { id: string; name: string; provider: string; model: string; is_default: number; ready: boolean }
+export interface Profile { id: string; name: string; provider: string; base_url: string; model: string; is_default: number; ready: boolean }
 export interface ProjectRow { id: string; name: string; head_version_id: string | null; updated_at: string }
 export interface Requirement { kind: string; text: string; supported: boolean; status: 'met' | 'unmet' | 'unsupported' | 'not_checked'; detail: string }
 export interface VersionInfo {
   id: string; number: number; mode: string; prompt: string; llm: string; approach: string; summary: string; notes: string[]; created_at: string;
-  requirements: Requirement[]; design: { levels: { id: string; name: string }[]; rooms: { id: string; name: string; level: string; rect: number[] }[] };
+  requirements: Requirement[]; suggestions?: string[]; design: { levels: { id: string; name: string }[]; rooms: { id: string; name: string; level: string; rect: number[] }[] };
 }
 export interface ProjectDetail { project: ProjectRow; head: VersionInfo | null; versions: { number: number; prompt: string; summary: string; mode: string }[] }
 
@@ -62,7 +62,7 @@ export const api = {
 };
 
 /** Run a prompt and yield its events as they arrive. Abort with the signal. */
-export async function* runPrompt(projectId: string, body: { prompt: string; base_version?: number | null; profile_id?: string | null; focus_guid?: string | null }, signal: AbortSignal): AsyncGenerator<RunEvent> {
+export async function* runPrompt(projectId: string, body: { prompt: string; base_version?: number | null; profile_id?: string | null; focus_guid?: string | null; layout?: number | null }, signal: AbortSignal): AsyncGenerator<RunEvent> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/api/projects/${projectId}/runs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });

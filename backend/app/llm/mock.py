@@ -53,7 +53,17 @@ def _pack(items: list[tuple[str, str, float]], y0: float, row_depth: float) -> l
     return out
 
 
-def build_steps(prompt: str) -> list[dict[str, Any]]:
+def _vary(items: list[tuple[str, str, float]], option: int) -> list[tuple[str, str, float]]:
+    """Layout options for the offline model: the same rooms in a different order, so the plan really differs."""
+    if option <= 0 or len(items) < 2:
+        return items
+    if option == 3:
+        return list(reversed(items))
+    k = option % len(items)
+    return items[k:] + items[:k]
+
+
+def build_steps(prompt: str, option: int = 0) -> list[dict[str, Any]]:
     p = parse_prompt(prompt)
     steps: list[dict[str, Any]] = [{"step": "project", "name": "Generated building", "why": "named from the brief"}]
     ground = [("Hall", "hall", 10.0), *p["rooms"]] if p["rooms"] else [("Hall", "hall", 10.0), ("Living", "living", 20.0), ("Kitchen", "kitchen", 14.0)]
@@ -66,6 +76,7 @@ def build_steps(prompt: str) -> list[dict[str, Any]]:
         upper.append(("Bathroom", "bathroom", 6.0))
     # every upper level starts with a landing at the same corner as the ground-floor hall, so one flight can climb through them
     per_level: list[list[tuple[str, str, float]]] = [ground] + [[(f"Landing {i + 1}", "hall", 10.0), *upper] for i in range(1, p["storeys"])]
+    per_level = [[lvl[0], *_vary(lvl[1:], option)] for lvl in per_level]
     return [steps[0], *layout_steps(per_level, p["roof"])]
 
 
@@ -140,7 +151,11 @@ class MockLLM:
             return {"requirements": build_requirements(prompt)}
         if request.meta.get("has_design") or request.meta.get("round", 0) > 0:
             return {"approach": "The offline model cannot edit an existing design.", "steps": []}
-        payload = {"approach": "Two rows of rooms packed edge to edge, a hall linking them, windows on exterior sides.", "steps": build_steps(prompt)}
+        option = int(request.meta.get("option", 0))
+        approach = "Two rows of rooms packed edge to edge, a hall linking them, windows on exterior sides."
+        if option:
+            approach = f"Difference: the rooms are in a different order along the two rows (variation {option}). " + approach
+        payload = {"approach": approach, "steps": build_steps(prompt, option)}
         text = json.dumps(payload)
         if on_text:
             for end in range(CHUNK_CHARS, len(text) + CHUNK_CHARS, CHUNK_CHARS):

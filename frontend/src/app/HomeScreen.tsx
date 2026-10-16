@@ -21,6 +21,15 @@ export function HomeScreen({ starters, prompts, projects, modelLabel, modelEntri
         <div role="group" aria-label="Starter prompts" className="flex flex-wrap justify-center gap-2">
           {starters.map((s) => <Chip key={s} onClick={() => setSeed({ text: prompts[s], n: seed.n + 1 })}>{s}</Chip>)}
         </div>
+        <details className="mx-auto max-w-[620px] text-xs text-muted">
+          <summary className="cursor-pointer text-center hover:text-fg">Where does my data go?</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-left">
+            <li>There is no account. Projects, versions and files are saved on this computer only.</li>
+            <li>Practice mode builds offline and sends nothing anywhere.</li>
+            <li>Gemini: your request, the current design and the element you picked are sent to Google, using your own key. Google's terms for that key apply.
+              The key is read from the backend's environment and never stored in the database or sent to the browser.</li>
+          </ul>
+        </details>
         {projects.length > 0 && (
           <section aria-label="Pick up where you left off" className="mt-6 flex flex-col gap-2">
             <h3 className="flex items-center gap-2 text-xs font-medium text-muted"><History className="size-3.5" aria-hidden />Recent sessions</h3>

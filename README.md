@@ -39,6 +39,10 @@ that one derived description, so the 3D model and the plans always agree to the 
 | **Prompt to model** | One sentence in, a valid IFC4 building out. Steps stream in and the model appears in the viewer as they land. |
 | **Talk to it** | Follow-up prompts edit the building. Click an element in the 3D view and the next message is about *that* element. |
 | **Versions** | Every prompt makes a version. Open any of them, restore one (history is never deleted), download any of them. |
+| **Sizes you state** | "Living room 5 m by 4 m", "12 m by 9 m overall", "35 square metres" (or feet) are read from your request, checked after the build, and shown as asked against built. A miss goes back to the model. |
+| **Roofs** | Flat, gable (pitched), hip and shed roofs on plain rectangular areas, with a pitch in degrees. |
+| **What next** | After a build, three follow-up requests drawn from the building itself. Picking one fills the box; nothing is sent until you press Enter. |
+| **Layout options** | "Try 3 other layouts" builds your first request three more ways (compact, open plan, spine). Each is saved as a new version with a one-line difference. |
 | **Exports** | IFC4 for BIM tools, DXF floor plans (named layers, metres, door swings, dimensions, stair symbols), an SVG of the plans, and JSON of the design and geometry. |
 | **Plans tab** | The floor plans of every level, drawn from the same document as the DXF download. |
 | **Design check tab** | An indicative check against a few dwelling rules (exits, stair geometry, ceiling height, daylight, bedroom escape windows) with "show in model". It is labelled as indicative and is not a compliance report. |
@@ -52,6 +56,10 @@ that one derived description, so the 3D model and the plans always agree to the 
 | Plans | Design check |
 | --- | --- |
 | ![Plans tab](docs/screenshots/plans.png) | ![Design check tab](docs/screenshots/design-check.png) |
+
+| A pitched roof, and what to ask next | Projects |
+| --- | --- |
+| ![Pitched roof with suggested next requests](docs/screenshots/pitched-roof.png) | ![Projects sheet](docs/screenshots/projects.png) |
 
 ## Quick start
 
@@ -92,6 +100,11 @@ about 40 seconds and an edit about 30. `reasoning_effort: low` is what keeps a b
 Without a key the **Practice mode** model is used. It needs no network and understands storeys, bedroom counts and a few room words,
 which is enough to see the whole pipeline work, and it is what the tests run on. It cannot edit an existing design.
 
+## Your data
+
+No account, no tracking. Projects stay on this computer. With the Practice model nothing is sent anywhere; with Gemini your request, the checklist and the
+current design go to Google using your own key. The model menu says where each model sends things. Details and limits: [docs/privacy.md](docs/privacy.md).
+
 ## Exports
 
 | Format | What it is | Notes |
@@ -112,7 +125,7 @@ which is enough to see the whole pipeline work, and it is what the tests run on.
 | Streaming | Server-Sent Events over POST |
 | Frontend | React 19, TypeScript 7, Vite 8, Tailwind CSS v4, Radix UI primitives, Lucide icons |
 | 3D | That Open (`@thatopen/components`, `@thatopen/fragments`) on three.js, with `web-ifc` pinned to 0.0.77 |
-| Tests | pytest (77 tests, no network), Vitest (8 tests), headless-browser checks of the main flows |
+| Tests | pytest (133 tests, no network), Vitest (8 tests), headless-browser checks of the main flows |
 
 ## Project layout
 
@@ -139,11 +152,11 @@ docs/              architecture, API, screenshots
 ## Tests
 
 ```bash
-cd backend  && .venv/Scripts/python -m pytest        # 77 tests on the practice model, no network
+cd backend  && .venv/Scripts/python -m pytest        # 133 tests on the practice model, no network
 cd frontend && npm test                                # 8 tests
 cd frontend && npx tsc --noEmit                        # type check
 cd design   && python contrast.py tokens.json          # WCAG contrast of every text/background pair (also tokens.dark.json)
-cd e2e && npm install && npm test                      # 30 browser tests, isolated backend and database, practice model
+cd e2e && npm install && npm test                      # 37 browser tests, isolated backend and database, practice model
 cd e2e && npm run test:live                            # 1 test against Gemini (needs GEMINI_API_KEY; costs a few cents)
 ```
 
@@ -160,8 +173,8 @@ reader on every prefix of a real reply.
 
 ## Current limits
 
-- Rooms are rectangles on a grid. Curved walls, pitched roofs, balconies, porches and basements are reported as "not buildable yet"
-  rather than silently dropped.
+- Rooms are rectangles on a grid. Curved walls, balconies, porches, pools and basements are reported as "not buildable yet"
+  rather than silently dropped. Pitched roofs (gable, hip, shed) fit plain rectangular areas; an L-shaped area stays flat and the version says so.
 - One straight stair per storey, against a wall of a hall, with a landing above it.
 - The design check covers a handful of dwelling rules in the style of the US IRC. It is a prompt to look, not an approval.
 - Quantities have no prices built in, on purpose.
@@ -173,4 +186,5 @@ reader on every prefix of a real reply.
 - [docs/architecture.md](docs/architecture.md): pipeline, data model, geometry rules, concurrency, decisions
 - [docs/api.md](docs/api.md): HTTP routes and the event stream
 - [docs/testing.md](docs/testing.md): the test plan and what is checked by hand
+- [docs/privacy.md](docs/privacy.md): what stays on your computer and what is sent
 - [design/components.md](design/components.md): component specifications

@@ -87,6 +87,44 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 | F08-E1 | edge | Screens scanned for accessibility | No serious or critical axe violations | e2e |
 | F08-E2 | edge | Contrast of every text pair in both themes | At least 4.5:1 | `design/contrast.py` |
 
+## F09 Stated sizes
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F09-H1 | happy | Ask for a living room 6 m by 4 m | The checklist shows the size and "asked 6.0 x 4.0 m" against what was built | e2e |
+| F09-U | unit | Sizes in many spellings (by, x, sqm, square metres, feet), subjects, plots, nonsense | The right requirement, or none | `test_sizes.py` |
+| F09-C | unit | Check met and unmet, either orientation, tolerance, total area across levels | Correct status, with numbers and a fix in the detail | `test_sizes.py` |
+
+## F11 Roofs
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F11-H1 | happy | Ask for a pitched roof | A gable roof is built, the roof requirement is met, quantities show it | e2e |
+| F11-U | unit | Mesh closed and outward-facing for each kind, volumes, ridge direction, shed sides, pitch limit | Exact | `test_roofs.py` |
+| F11-I | unit | IFC roof type and shape, sloped area in quantities, L-shaped area stays flat with a note | As described | `test_roofs.py` |
+
+## F12 Suggestions
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F12-H1 | happy | Finish a build, click a suggestion | The box is filled, nothing is sent | e2e |
+| F12-E1 | edge | Home screen | No suggestions | e2e |
+| F12-U | unit | Rules for each suggestion, names of real rooms, limit, no duplicates | As described | `test_suggest.py` |
+
+## F13 Layout options
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F13-H1 | happy | Press "Try 3 other layouts" | Versions 2 to 4 appear, each labelled with its option and difference | e2e |
+| F13-E1 | edge | Press Stop during the series | The series ends and nothing half-saved remains | e2e |
+| F13-A | api | Options 1 to 3, bad option, stale base | Three different plans, 422 and 409 as expected | `test_api.py` |
+
+## F14 Your data
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F14-H1 | happy | Open the data note on Home, open the model menu, build with the practice model | The note and the per-model destination are shown; the browser contacts only this computer | e2e |
+
 ## Checked by hand
 
 - Visual glitches in the 3D view on real graphics hardware (the automated runs use a software renderer).

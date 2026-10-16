@@ -26,7 +26,7 @@ The model emits **steps**, never geometry. A step is a small JSON object:
 {"step": "room", "level": "L1", "name": "Kitchen", "kind": "kitchen", "rect": [4, 0, 4, 5], "why": "next to the hall"}
 ```
 
-The vocabulary is `project, storey, room, rearrange, door, window, stair, roof, material, delete, remark`. Everything else is derived:
+The vocabulary is `project, storey, room, rearrange, door, window, stair, roof (flat, gable, hip or shed, with a pitch), material, delete, remark`. Everything else is derived:
 
 | Layer | What it holds | Where |
 | --- | --- | --- |
@@ -63,6 +63,18 @@ closed polygons) is where models fail; and one derived description guarantees th
 
 Edits use the same pipeline. The model is shown the current design as compact text (rooms with rectangles, exterior sides, neighbours,
 doors, windows, stairs) plus the element the user clicked, and emits only the steps that change it.
+
+## Sizes, roofs, suggestions and layout options
+
+- **Stated sizes** (`domain/sizes.py`). A room size, an overall footprint or an area in the prompt is read with patterns, not by the model, and tied to the nearest
+  room word or to the building. It becomes a `dimension` or `area` requirement and `checks.check` measures it (rooms within 0.15 m either way round, the ground-floor
+  outline within 0.25 m, areas within 10%). A miss goes back to the model with the numbers and the step to send. The model's own size items are replaced, since they carry no numbers.
+- **Pitched roofs** (`domain/roofs.py`). Each exposed roof area that is a plain rectangle becomes a closed triangle mesh (gable, hip or shed) written as an IFC
+  roof with a tessellated shape; the ridge follows the longer side, the pitch is lowered for very wide spans, and a non-rectangular area stays flat with a note.
+- **Suggestions** (`domain/suggest.py`). Up to three follow-up requests chosen by rules from the design (no roof pitch, no study, a small bedroom ...), served with every version.
+- **Layout options** (`pipeline/layouts.py`). A run with `layout` starts from an empty design, adds a hint pushing the plan towards a different arrangement, and is saved
+  as the next version of the project with the model's one-line "Difference:" in its summary.
+- **Rearranging a storey** keeps the rooms that fit and reports each one that does not, instead of rejecting the whole storey.
 
 ## Geometry rules
 

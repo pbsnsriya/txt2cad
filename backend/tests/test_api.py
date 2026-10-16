@@ -191,3 +191,30 @@ def test_a_pitched_roof_runs_through_to_ifc_and_exports(client):
     assert client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "dxf"}).status_code == 200
     rows = client.get(f"/api/projects/{pid}/versions/1/analysis").json()["quantities"]["rows"]
     assert any(r["item"].startswith("Roof (gable") for r in rows)
+
+
+def test_a_version_carries_suggestions_for_what_to_ask_next(client):
+    pid = client.post("/api/projects", json={"name": "Next"}).json()["id"]
+    run(client, pid, "A one storey house with a kitchen, living room and two bedrooms.")
+    head = client.get(f"/api/projects/{pid}").json()["head"]
+    assert 1 <= len(head["suggestions"]) <= 3 and head["suggestions"][0] == "Give it a gable roof."
+    assert client.get(f"/api/projects/{pid}/versions/1").json()["suggestions"] == head["suggestions"]
+
+
+def test_layout_options_are_new_versions_of_the_same_brief(client):
+    pid = client.post("/api/projects", json={"name": "Layouts"}).json()["id"]
+    brief = "A one storey house with a kitchen, living room, a study and two bedrooms."
+    run(client, pid, brief)
+    plans = []
+    for k in (1, 2, 3):
+        head = client.get(f"/api/projects/{pid}").json()["head"]
+        evs = run(client, pid, brief, base_version=head["number"], layout=k)
+        assert evs[-1]["stage"] == "finished" and evs[-1]["data"]["number"] == head["number"] + 1
+        assert f"Layout option {k}" in evs[-1]["message"] and "different order" in evs[-1]["message"]
+        plans.append(sorted((r["name"], tuple(r["rect"])) for r in client.get(f"/api/projects/{pid}").json()["head"]["design"]["rooms"]))
+    detail = client.get(f"/api/projects/{pid}").json()
+    assert [v["number"] for v in detail["versions"]] == [1, 2, 3, 4]
+    assert detail["versions"][1]["prompt"].endswith("[layout option 1: Compact]") and detail["versions"][0]["prompt"] == brief
+    assert len({tuple(p) for p in plans}) == 3                       # three different plans
+    assert client.post(f"/api/projects/{pid}/runs", json={"prompt": brief, "layout": 4}).status_code == 422
+    assert client.post(f"/api/projects/{pid}/runs", json={"prompt": brief, "layout": 1, "base_version": 1}).status_code == 409   # stale, as for any run

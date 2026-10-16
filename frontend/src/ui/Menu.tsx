@@ -35,9 +35,8 @@ export function Menu({ trigger, entries, align = 'end' }: { trigger: ReactNode; 
               )}
             >
               <span className="font-medium text-fg">{e.title}</span>
-              {(e.description || e.disabledReason) && (
-                <span className="text-xs text-muted">{e.disabledReason ?? e.description}</span>
-              )}
+              {e.description && <span className="text-xs text-muted">{e.description}</span>}
+              {e.disabledReason && <span className="text-xs text-muted">{e.disabledReason}</span>}
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>
