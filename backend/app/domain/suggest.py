@@ -32,6 +32,13 @@ def suggest(design: Design, limit: int = 3) -> list[str]:
 
     if design.roof == "flat":
         add("Give it a gable roof.")
+    if not design.furniture and len(rooms) >= 3:
+        add("Furnish every room.")
+    living_room = next((r for r in rooms if r.kind == "living"), None)
+    if living_room is not None and not living_room.floor:
+        add(f"Give the {living_room.name} an oak floor.")
+    if bedrooms and not any(r.walls for r in bedrooms):
+        add("Paint the bedrooms cream.")
     if not any(r.kind == "office" for r in rooms):
         anchor = next((r for r in ground if r.kind == "kitchen"), None) or next((r for r in ground if r.kind == "living"), None)
         if anchor:

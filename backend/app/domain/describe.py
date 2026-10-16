@@ -21,9 +21,12 @@ def describe(design: Design) -> str:
             x, y, w, d = r.rect
             near = sorted({(p.other if p.room == r.id else p.room) for p in pieces if r.id in (p.room, p.other) and p.other})
             ext = ",".join(sorted(sides.get(r.id, []))) or "-"
-            lines.append(f"  room {r.id} '{r.name}' kind={r.kind} rect=[{x},{y},{w},{d}] area={w * d:.1f} m2 exterior sides: {ext}; touches: {', '.join(near) or '-'}")
+            finish = (f" floor={r.floor}" if r.floor else "") + (f" walls={r.walls}" if r.walls else "") + ("" if r.roofed else " open to the sky")
+            lines.append(f"  room {r.id} '{r.name}' kind={r.kind} rect=[{x},{y},{w},{d}] area={w * d:.1f} m2{finish} exterior sides: {ext}; touches: {', '.join(near) or '-'}")
     lines += [f"DOOR {x.id}: {x.room} -> {x.to}" + (f" side {x.side}" if x.side else "") for x in design.doors]
     lines += [f"WINDOW {x.id}: {x.room} side {x.side}" for x in design.windows]
+    lines += [f"FURNITURE {f.id}: {f.kind} {f.w:g} x {f.d:g} x {f.h:g} m in {f.room}, centre ({f.x:g}, {f.y:g}), back to the {SIDE_WORDS[{0: 'S', 90: 'E', 180: 'N', 270: 'W'}[f.rot]]}"
+              + (f", colour {f.colour}" if f.colour else "") for f in design.furniture]
     lines += [f"STAIR {x.id}: in {x.room} along the {x.side} wall, up to {x.to_level or 'the next level'}" for x in design.stairs]
     return "\n".join(lines)
 
@@ -43,14 +46,26 @@ def describe_focus(design: Design, element_id: str) -> str | None:
     for st in design.stairs:
         if st.id == element_id:
             return f"the stair {st.id} in {_name(design, st.room)}"
+    for f in design.furniture:
+        if f.id == element_id:
+            return f"the {f.kind.replace('_', ' ')} {f.id} in {_name(design, f.room)}, {f.w:g} x {f.d:g} m, centre ({f.x:g}, {f.y:g})"
+    if element_id.startswith("covering."):
+        room = design.room(element_id.rsplit(".", 1)[1])
+        if room is not None and element_id.startswith("covering.floor."):
+            return f"the floor finish ({room.floor}) of {_name(design, room.id)}"
+        if room is not None:
+            return f"the wall finish ({room.walls}) of {_name(design, room.id)}"
     for r in design.rooms:
         if element_id == f"room.{r.level}.{r.id}":
-            return f"the room {r.id} '{r.name}' ({r.kind}) on {r.level}, rect {list(r.rect)}"
+            return f"the room {r.id} '{r.name}' ({r.kind}) on {r.level}, rect {list(r.rect)}" + (f", floor {r.floor}" if r.floor else "") + (f", walls {r.walls}" if r.walls else "")
     for p in wall_pieces(design):
         if p.id == element_id:
             if p.other is None:
                 return f"the {SIDE_WORDS[p.side]} exterior wall {p.id} of {_name(design, p.room)} on {p.level}"
-            return f"the partition wall {p.id} between {_name(design, p.room)} and {_name(design, p.other)} on {p.level}"
+            doors = [x.id for x in design.doors if {x.room, x.to} == {p.room, p.other}]
+            return (f"the partition wall {p.id} between {_name(design, p.room)} and {_name(design, p.other)} on {p.level}, {p.length:.1f} m long"
+                    + (f"; it holds the door {', '.join(doors)}" if doors else "")
+                    + f". To take it away or open it up, send ONE door step: room \"{p.room}\", to \"{p.other}\", kind \"opening\", width {max(p.length - 0.1, 0.9):.1f}")
     if element_id.startswith("floor."):
         return f"the floor slab {element_id} of {element_id.split('.')[1]}"
     if element_id.startswith("roof."):
@@ -72,6 +87,11 @@ def _rooms_in(design: Design, element_id: str, pieces) -> set[str]:
     for s in design.stairs:
         if s.id == element_id:
             return {s.room}
+    for f in design.furniture:
+        if f.id == element_id:
+            return {f.room}
+    if element_id.startswith("covering."):
+        return {element_id.rsplit(".", 1)[1]} if design.room(element_id.rsplit(".", 1)[1]) else set()
     for r in design.rooms:
         if element_id == f"room.{r.level}.{r.id}":
             return {r.id}

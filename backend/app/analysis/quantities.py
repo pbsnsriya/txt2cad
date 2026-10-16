@@ -10,6 +10,9 @@ from typing import Any
 
 from shapely.geometry import Polygon
 
+from collections import Counter
+
+from ..domain.catalogue import CATALOGUE
 from ..domain.spec import BuildingSpec
 
 
@@ -45,6 +48,17 @@ def quantities(spec: BuildingSpec) -> dict[str, Any]:
         by_type[(r.kind, r.pitch)] = by_type.get((r.kind, r.pitch), 0.0) + (plan / math.cos(math.radians(r.pitch)) if r.pitch else plan)
     for (kind, pitch), area in sorted(by_type.items()):
         row("Roof", f"Roof ({kind}{f', {pitch:g} deg' if pitch else ''})", area, "m2", "sloped surface, not plan area" if pitch else "")
+    for kind, n in sorted(Counter(f.kind for f in spec.furniture).items()):
+        row("Furniture", CATALOGUE[kind].label if kind in CATALOGUE else kind, n, "no.")
+    floors: dict[str, float] = {}
+    paints: dict[str, float] = {}
+    for c in spec.coverings:
+        target = floors if c.kind == "floor" else paints
+        target[c.finish] = target.get(c.finish, 0.0) + c.area
+    for finish, area in sorted(floors.items()):
+        row("Finishes", f"Floor finish: {finish}", area, "m2")
+    for finish, area in sorted(paints.items()):
+        row("Finishes", f"Wall finish: {finish}", area, "m2", "inside faces, net of openings")
     materials = sorted({w.material for w in spec.walls if w.external})
     for m in materials:
         row("External walls", f"External wall, {m} (net of openings)", sum(net(w) for w in spec.walls if w.external and w.material == m), "m2",

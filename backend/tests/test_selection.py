@@ -86,3 +86,10 @@ def test_the_run_endpoint_takes_a_list_and_tells_the_model(tmp_path, monkeypatch
         assert len(selected) == 1 and "2 elements" in selected[0]["data"]["text"] and "kitchen" in selected[0]["data"]["text"]
         # too many ids, or an id that is not a GlobalId, is refused before anything runs
         assert c.post(f"/api/projects/{pid}/runs", json={"prompt": "x", "focus_guids": ["a" * 100]}).status_code == 422
+
+
+def test_a_selected_partition_wall_says_how_long_it_is_and_which_door_it_holds():
+    d = build(*HOUSE)
+    wall = next(p for p in __import__("app.domain.derive", fromlist=["wall_pieces"]).wall_pieces(d) if p.other)
+    text = describe_selection(d, [wall.id])
+    assert "m long" in text and "it holds the door door.kitchen.living" in text

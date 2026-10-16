@@ -22,8 +22,8 @@ txt2cad is a program you run on your own computer. This page says what it keeps,
 | --- | --- |
 | The text of your request | Always |
 | The checklist made from your request, including any sizes it found | Always |
-| The current design as text: rooms, sizes, doors, windows, stairs | When you change an existing building |
-| A description of the element you picked in the 3D view | When something is selected |
+| The current design as text: rooms, sizes, doors, windows, stairs, furniture, finishes | When you change an existing building |
+| A description of each part you picked in the 3D view (a name, its kind and where it is), up to 30 listed | When something is selected |
 | Rejected steps and unmet items, so the model can correct them | In fix rounds |
 
 It does **not** send the IFC or DXF files, screenshots, or anything from other projects. Images are not supported.

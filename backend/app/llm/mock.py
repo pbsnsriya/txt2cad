@@ -13,6 +13,8 @@ from typing import Any
 
 from .base import LLMRequest, TextCallback
 
+FLOOR_NAMES = ("oak", "walnut", "birch", "tile", "marble", "carpet", "concrete")
+PAINT_NAMES = ("white", "cream", "grey", "blue", "green", "yellow", "pink", "beige")
 NUMBER_WORDS = {"one": 1, "a": 1, "an": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8}
 ROOM_WORDS: list[tuple[str, str, float]] = [   # keyword, kind, target area m2
     ("kitchen", "kitchen", 14.0), ("living", "living", 20.0), ("dining", "dining", 12.0), ("office", "office", 10.0), ("study", "office", 10.0),
@@ -39,7 +41,11 @@ def parse_prompt(prompt: str) -> dict[str, Any]:
         if re.search(word, t):
             rooms.append((word.capitalize(), kind, area))
     roof = "hip" if re.search(r"hip", t) else "shed" if re.search(r"shed roof|lean-to|mono-?pitch", t) else "gable" if re.search(r"pitched|gable|sloped|sloping", t) else "flat"
-    return {"storeys": storeys, "bedrooms": _count(t, "bedroom"), "bathrooms": max(_count(t, "bath"), 1 if storeys > 1 else 0), "rooms": rooms, "roof": roof}
+    furnished = bool(re.search(r"furnish|furniture|interior|sofa|\bbed\b", t))
+    floor = next((n for n in FLOOR_NAMES if re.search(rf"\b{n}\s+(?:wood\s+)?floor", t)), None)
+    walls = next((n for n in PAINT_NAMES if re.search(rf"\b{n}\s+(?:painted\s+)?walls", t)), None)
+    return {"storeys": storeys, "bedrooms": _count(t, "bedroom"), "bathrooms": max(_count(t, "bath"), 1 if storeys > 1 else 0), "rooms": rooms, "roof": roof,
+            "furnished": furnished, "floor": floor, "walls": walls}
 
 
 def _pack(items: list[tuple[str, str, float]], y0: float, row_depth: float) -> list[dict[str, Any]]:
@@ -77,7 +83,12 @@ def build_steps(prompt: str, option: int = 0) -> list[dict[str, Any]]:
     # every upper level starts with a landing at the same corner as the ground-floor hall, so one flight can climb through them
     per_level: list[list[tuple[str, str, float]]] = [ground] + [[(f"Landing {i + 1}", "hall", 10.0), *upper] for i in range(1, p["storeys"])]
     per_level = [[lvl[0], *_vary(lvl[1:], option)] for lvl in per_level]
-    return [steps[0], *layout_steps(per_level, p["roof"])]
+    out = [steps[0], *layout_steps(per_level, p["roof"])]
+    if p["furnished"]:
+        out.append({"step": "furnish", "room": "all", "why": "the request asks for furniture"})
+    if p["floor"] or p["walls"]:
+        out.append({"step": "finish", "room": "all", **({"floor": p["floor"]} if p["floor"] else {}), **({"walls": p["walls"]} if p["walls"] else {}), "why": "the finishes the request names"})
+    return out
 
 
 def layout_steps(per_level: list[list[tuple[str, str, float]]], roof: str = "flat") -> list[dict[str, Any]]:
@@ -134,6 +145,8 @@ def build_requirements(prompt: str) -> list[dict[str, Any]]:
     reqs: list[dict[str, Any]] = [{"kind": "storeys", "count": p["storeys"], "text": f"{p['storeys']} storey(s)", "supported": True}]
     if p["bedrooms"]:
         reqs.append({"kind": "room", "keyword": "bedroom", "count": p["bedrooms"], "text": f"{p['bedrooms']} bedroom(s)", "supported": True})
+    if p["furnished"]:
+        reqs.append({"kind": "feature", "keyword": "furniture", "count": 1, "text": "The rooms are furnished", "supported": True})
     if p["roof"] != "flat":
         reqs.append({"kind": "feature", "keyword": "roof", "count": 1, "text": f"A {p['roof']} roof", "supported": True})
     for word, kind, _ in p["rooms"]:

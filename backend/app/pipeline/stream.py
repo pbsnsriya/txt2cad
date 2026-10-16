@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable
 from pydantic import ValidationError
 
 from .. import config
-from ..domain.derive import DesignError, derive, prune_invalid_openings
+from ..domain.derive import DesignError, derive, prune_blocking_furniture, prune_invalid_openings
 from ..domain.design import Design
 from ..domain.steps import Step, StepError, apply_step
 from ..ifc.compile import compile_ifc
@@ -62,7 +62,7 @@ class StepStream:
             self.seen += 1
             await self._apply(raw)
             if len(self.rejections) >= self.max_rejected:
-                self.over_limit, self.limit_reason = True, f"{len(self.rejections)} steps in a row of this reply were rejected"
+                self.over_limit, self.limit_reason = True, f"{len(self.rejections)} steps of this reply were rejected"
             elif self.seen >= self.max_steps:
                 self.over_limit, self.limit_reason = True, f"the reply went past {self.max_steps} steps"
 
@@ -74,6 +74,8 @@ class StepStream:
             pruned: list[str] = []
             if step.step in STRUCTURAL:           # moving walls can strand openings: drop them and say so
                 candidate, pruned = prune_invalid_openings(candidate)
+            elif step.step in ("door", "stair"):  # a new door or stair may land on furniture: the furniture moves out of the way
+                candidate, pruned = prune_blocking_furniture(candidate)
             else:
                 derive(candidate)                 # a step that makes the design unbuildable is rejected, with the reason
         except (StepError, DesignError) as exc:
@@ -85,7 +87,7 @@ class StepStream:
         self.design = candidate
         self.applied += 1
         self.on_applied(candidate)
-        text = headline(step, candidate) + (f" ({len(pruned)} opening(s) no longer fit and were removed)" if pruned else "")
+        text = headline(step, candidate) + (f" ({len(pruned)} thing(s) no longer fit and were removed)" if pruned else "")
         if pruned:
             self.design = candidate.model_copy(update={"notes": [*candidate.notes, *pruned]})
         await self.emit("move", text, index=index, ok=True, phase=phase_of(step), why=step.why, kind=step.step, facts=facts(candidate), removed=pruned)

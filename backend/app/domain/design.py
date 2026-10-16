@@ -15,7 +15,7 @@ RoomKind = Literal[
     "living", "kitchen", "dining", "office", "bedroom", "bathroom", "hall", "garage", "utility", "storage",
     "reception", "meeting", "classroom", "retail", "workshop", "other",
 ]
-DoorKind = Literal["single", "double", "garage"]
+DoorKind = Literal["single", "double", "garage", "opening"]      # "opening" is an archway: the wall is open, there is no leaf
 WindowKind = Literal["standard", "large", "small"]
 
 LEVEL_MIN_HEIGHT, LEVEL_MAX_HEIGHT = 2.2, 12.0
@@ -36,6 +36,8 @@ class Room(BaseModel):
     kind: RoomKind = "other"
     rect: tuple[float, float, float, float]
     roofed: bool = True
+    floor: str | None = None      # finish of the floor: a name from the palette or #rrggbb
+    walls: str | None = None      # paint of the inside of the walls
 
     @field_validator("rect")
     @classmethod
@@ -45,6 +47,20 @@ class Room(BaseModel):
         return v
 
 
+class Furniture(BaseModel):
+    """A piece placed in a room. (x, y) is the centre of its footprint in plan metres; `rot` turns it counter-clockwise, and at 0 its back is to the south."""
+    id: str
+    room: str
+    kind: str
+    x: float
+    y: float
+    w: float = Field(gt=0.05, le=8.0)          # across the piece
+    d: float = Field(gt=0.05, le=8.0)          # from its back to its front
+    h: float = Field(gt=0.05, le=4.0)
+    rot: Literal[0, 90, 180, 270] = 0
+    colour: str | None = None                  # a name from the palettes or #rrggbb; None keeps the catalogue colour
+
+
 class Door(BaseModel):
     id: str
     room: str
@@ -52,7 +68,7 @@ class Door(BaseModel):
     side: Side | None = None     # required for "outside" when the room has several exterior sides
     at: float = Field(0.5, ge=0.0, le=1.0)
     kind: DoorKind = "single"
-    width: float = Field(0.9, ge=0.6, le=5.0)
+    width: float = Field(0.9, ge=0.6, le=12.0)
     height: float = Field(2.1, ge=1.8, le=4.0)
 
 
@@ -84,6 +100,7 @@ class Design(BaseModel):
     doors: list[Door] = Field(default_factory=list)
     windows: list[Window] = Field(default_factory=list)
     stairs: list[Stair] = Field(default_factory=list)
+    furniture: list[Furniture] = Field(default_factory=list)
     roof: Literal["flat", "gable", "hip", "shed"] = "flat"
     roof_pitch: float = Field(30.0, ge=5.0, le=60.0)
     roof_high_side: Side | None = None      # shed roofs: the side that is high

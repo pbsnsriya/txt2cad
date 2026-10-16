@@ -23,7 +23,9 @@ import ifcopenshell.guid
 
 from ..domain.geom import box_on_wall as _box_on_wall, stair_profile, wall_outline as _wall_outline
 from ..domain.roofs import roof_mesh
-from ..domain.spec import BuildingSpec, Point, StairSpec
+from shapely.geometry import MultiPolygon, Polygon, box as shp_box
+
+from ..domain.spec import BoxSpec, BuildingSpec, CoveringSpec, Point, StairSpec
 
 DOOR_LEAF_THICKNESS = 0.05
 WINDOW_FRAME_THICKNESS = 0.08
@@ -58,6 +60,70 @@ class _Builder:
                 attributes={"SurfaceColour": {"Name": None, "Red": r, "Green": g, "Blue": b}, "Transparency": t, "ReflectanceMethod": "NOTDEFINED"})
             self.styles[name] = st
         return self.styles[name]
+
+    def rgb_style(self, hex_colour: str) -> ifcopenshell.entity_instance:
+        """A surface style for any #rrggbb, made once per colour."""
+        key = f"rgb{hex_colour}"
+        if key not in self.styles:
+            r, g, b = (int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5))
+            st = ifcopenshell.api.style.add_style(self.model, name=hex_colour)
+            ifcopenshell.api.style.add_surface_style(
+                self.model, style=st, ifc_class="IfcSurfaceStyleRendering",
+                attributes={"SurfaceColour": {"Name": None, "Red": r, "Green": g, "Blue": b}, "Transparency": 0.0, "ReflectanceMethod": "NOTDEFINED"})
+            self.styles[key] = st
+        return self.styles[key]
+
+    def _solid(self, outline: list[Point], z0: float, depth: float, holes: list[list[Point]] | None = None):
+        m = self.model
+        outer = self._ring(outline)
+        profile = (m.createIfcArbitraryProfileDefWithVoids("AREA", None, outer, [self._ring(h) for h in holes]) if holes
+                   else m.createIfcArbitraryClosedProfileDef("AREA", None, outer))
+        place = m.createIfcAxis2Placement3D(m.createIfcCartesianPoint((0.0, 0.0, float(z0))), None, None)
+        return m.createIfcExtrudedAreaSolid(profile, place, m.createIfcDirection((0.0, 0.0, 1.0)), float(depth))
+
+    def boxes_shape(self, body, boxes: list[BoxSpec]):
+        """A piece of furniture: several blocks in one shape, each with its own colour."""
+        m = self.model
+        items = []
+        for bx in boxes:
+            solid = self._solid(bx.outline, bx.z0, bx.depth)
+            ifcopenshell.api.style.assign_item_style(m, item=solid, style=self.rgb_style(bx.colour))
+            items.append(solid)
+        rep = m.createIfcShapeRepresentation(body, "Body", "SweptSolid", items)
+        return m.createIfcProductDefinitionShape(None, None, [rep])
+
+    def covering_shape(self, body, c: CoveringSpec):
+        """A floor finish is a thin slab; a wall finish is the wall's inside face with holes where the openings are, extruded into the room."""
+        m = self.model
+        if c.kind == "floor":
+            solid = self._solid(c.outline, c.z0, c.thickness)
+            ifcopenshell.api.style.assign_item_style(m, item=solid, style=self.rgb_style(c.colour))
+            return m.createIfcProductDefinitionShape(None, None, [m.createIfcShapeRepresentation(body, "Body", "SweptSolid", [solid])])
+        assert c.start and c.end and c.normal
+        ux, uy = (c.end[0] - c.start[0]) / c.length, (c.end[1] - c.start[1]) / c.length
+        nx, ny = c.normal
+        flip = (nx * uy + ny * -ux) < 0                       # the extrusion axis must be (uy, -ux) for local y to point up; otherwise run the wall backwards
+        base = c.end if flip else c.start
+        xdir = (-ux, -uy, 0.0) if flip else (ux, uy, 0.0)
+        face = (base[0] + nx * c.wall_thickness / 2, base[1] + ny * c.wall_thickness / 2, float(c.z0))
+        place = m.createIfcAxis2Placement3D(m.createIfcCartesianPoint(face), m.createIfcDirection((nx, ny, 0.0)), m.createIfcDirection(xdir))
+        holes = [(c.length - a1, b0, c.length - a0, b1) for a0, b0, a1, b1 in c.holes] if flip else list(c.holes)
+        skin = shp_box(0.0, 0.0, c.length, c.height)
+        if holes:
+            from shapely.ops import unary_union
+            skin = skin.difference(unary_union([shp_box(a0, b0, a1, b1) for a0, b0, a1, b1 in holes]))
+        polys = list(skin.geoms) if isinstance(skin, MultiPolygon) else [skin]
+        items = []
+        for poly in polys:
+            if poly.is_empty or poly.area < 1e-6:
+                continue
+            outer = self._ring(list(poly.exterior.coords)[:-1])
+            inner = [self._ring(list(r.coords)[:-1]) for r in poly.interiors]
+            profile = m.createIfcArbitraryProfileDefWithVoids("AREA", None, outer, inner) if inner else m.createIfcArbitraryClosedProfileDef("AREA", None, outer)
+            solid = m.createIfcExtrudedAreaSolid(profile, place, m.createIfcDirection((0.0, 0.0, 1.0)), float(c.thickness))
+            ifcopenshell.api.style.assign_item_style(m, item=solid, style=self.rgb_style(c.colour))
+            items.append(solid)
+        return m.createIfcProductDefinitionShape(None, None, [m.createIfcShapeRepresentation(body, "Body", "SweptSolid", items)])
 
     def _ring(self, pts: list[Point]):
         m = self.model
@@ -158,12 +224,25 @@ def compile_ifc(spec: BuildingSpec, design_json: str = "", guids: dict[str, str]
         cut = b.create("IfcOpeningElement", f"{o.label or o.id} (opening)", f"opening:{o.id}",
                        b.extrude(body, _box_on_wall(centre, u, n, o.width, wall_spec.thickness + 2 * OPENING_OVERCUT), z0, o.height, "plaster"))
         ifcopenshell.api.feature.add_feature(m, feature=cut, element=walls[o.host])
+        if o.kind == "door" and o.style == "opening":          # an archway: the wall is open, there is nothing to fill it with
+            continue
         thickness = DOOR_LEAF_THICKNESS if o.kind == "door" else WINDOW_FRAME_THICKNESS
         cls = "IfcDoor" if o.kind == "door" else "IfcWindow"
         fill = b.create(cls, o.label or o.id, f"element:{o.id}", b.extrude(body, _box_on_wall(centre, u, n, o.width, thickness), z0, o.height, o.kind))
         fill.OverallWidth, fill.OverallHeight = o.width, o.height
         ifcopenshell.api.spatial.assign_container(m, products=[fill], relating_structure=storeys[o.level])
         ifcopenshell.api.feature.add_filling(m, opening=cut, element=fill)
+
+    for fu in spec.furniture:
+        piece = b.create("IfcFurniture", fu.label or fu.id, f"element:{fu.id}", b.boxes_shape(body, fu.boxes))
+        ifcopenshell.api.spatial.assign_container(m, products=[piece], relating_structure=storeys[fu.level])
+        ifcopenshell.api.pset.edit_pset(m, pset=ifcopenshell.api.pset.add_pset(m, product=piece, name="Txt2Cad_Furniture"),
+                                        properties={"Kind": fu.kind, "Room": fu.room, "HeightM": fu.height})
+    for cv in spec.coverings:
+        covering = b.create("IfcCovering", cv.label or cv.id, f"element:{cv.id}", b.covering_shape(body, cv), "FLOORING" if cv.kind == "floor" else "CLADDING")
+        ifcopenshell.api.spatial.assign_container(m, products=[covering], relating_structure=storeys[cv.level])
+        ifcopenshell.api.pset.edit_pset(m, pset=ifcopenshell.api.pset.add_pset(m, product=covering, name="Txt2Cad_Finish"),
+                                        properties={"Finish": cv.finish, "Colour": cv.colour, "AreaM2": cv.area})
 
     for sp in spec.spaces:
         space = b.create("IfcSpace", sp.name, f"element:{sp.id}", b.extrude(body, sp.outline, spec.level_elevation(sp.level), 2.4, "space"))

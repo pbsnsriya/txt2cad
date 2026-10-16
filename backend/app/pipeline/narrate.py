@@ -7,7 +7,7 @@ from ..domain.steps import Step, norm_level, norm_side
 
 SIDE_NAMES = {"N": "north", "S": "south", "E": "east", "W": "west"}
 PHASES = {"project": "Setup", "storey": "Setup", "room": "Rooms", "rearrange": "Rooms", "door": "Doors and stairs", "stair": "Doors and stairs",
-          "window": "Windows and roof", "roof": "Windows and roof", "material": "Windows and roof", "delete": "Changes", "remark": "Notes"}
+          "window": "Windows and roof", "roof": "Windows and roof", "material": "Windows and roof", "furnish": "Interiors", "furniture": "Interiors", "finish": "Interiors", "delete": "Changes", "remark": "Notes"}
 
 
 def phase_of(step: Step) -> str:
@@ -40,6 +40,14 @@ def headline(step: Step, design: Design) -> str:
             return "Flat roof over the top floor"
         extra = f", rising to the {SIDE_NAMES.get(design.roof_high_side or 'N')}" if design.roof == "shed" else ""
         return f"{design.roof.capitalize()} roof, {design.roof_pitch:g} degrees{extra}"
+    if k == "furnish":
+        return f"Furnished: {len(design.furniture)} pieces in {len({f.room for f in design.furniture})} rooms"
+    if k == "furniture":
+        f = design.furniture[-1] if design.furniture else None
+        return f"{f.kind.replace('_', ' ').capitalize()} in {f.room}" if f else "Furniture"
+    if k == "finish":
+        bits = [f"floor {step.floor}" if step.floor else "", f"walls {step.walls}" if step.walls else ""]
+        return f"Finish for {step.room or 'all rooms'}: " + ", ".join(b for b in bits if b)
     if k == "material":
         return f"Exterior walls in {step.material}"
     if k == "delete":
@@ -49,4 +57,5 @@ def headline(step: Step, design: Design) -> str:
 
 def facts(design: Design) -> dict[str, float | int]:
     area = sum(r.rect[2] * r.rect[3] for r in design.rooms)
-    return {"levels": len(design.levels), "rooms": len(design.rooms), "doors": len(design.doors), "windows": len(design.windows), "gross_area_m2": round(area, 1)}
+    return {"levels": len(design.levels), "rooms": len(design.rooms), "doors": len(design.doors), "windows": len(design.windows), "furniture": len(design.furniture),
+            "gross_area_m2": round(area, 1)}

@@ -218,3 +218,21 @@ def test_layout_options_are_new_versions_of_the_same_brief(client):
     assert len({tuple(p) for p in plans}) == 3                       # three different plans
     assert client.post(f"/api/projects/{pid}/runs", json={"prompt": brief, "layout": 4}).status_code == 422
     assert client.post(f"/api/projects/{pid}/runs", json={"prompt": brief, "layout": 1, "base_version": 1}).status_code == 409   # stale, as for any run
+
+
+def test_a_furnished_house_with_finishes_runs_through_every_output(client):
+    pid = client.post("/api/projects", json={"name": "Interiors"}).json()["id"]
+    evs = run(client, pid, "A one storey house with a kitchen, a living room and two bedrooms, furnished, with oak floors and cream walls.")
+    assert evs[-1]["stage"] == "finished"
+    moves = [e for e in evs if e["stage"] == "move" and e["data"].get("phase") == "Interiors"]
+    assert len(moves) == 2 and all(m["data"]["ok"] for m in moves)
+    compared = [e for e in evs if e["stage"] == "compare"][-1]["data"]["items"]
+    assert [i["status"] for i in compared if i["text"] == "The rooms are furnished"] == ["met"]
+    model = ifcopenshell.file.from_string(client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "ifc"}).text)
+    assert len(model.by_type("IfcFurniture")) > 6 and {c.PredefinedType for c in model.by_type("IfcCovering")} == {"FLOORING", "CLADDING"}
+    dxf = client.get(f"/api/projects/{pid}/versions/1/export", params={"format": "dxf"}).text
+    assert "A-FURN" in dxf
+    rows = {(r["group"], r["item"]) for r in client.get(f"/api/projects/{pid}/versions/1/analysis").json()["quantities"]["rows"]}
+    assert ("Furniture", "Sofa") in rows and ("Finishes", "Floor finish: oak") in rows and ("Finishes", "Wall finish: cream") in rows
+    head = client.get(f"/api/projects/{pid}").json()["head"]
+    assert not any("Furnish every room" in s for s in head["suggestions"])

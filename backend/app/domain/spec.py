@@ -81,6 +81,52 @@ class StairSpec(BaseModel):
     z0: float                  # floor level it starts from
 
 
+class BoxSpec(BaseModel):
+    """One block of a piece of furniture: a rectangle in plan (already rotated and placed) extruded up from z0."""
+    outline: list[Point]
+    z0: float
+    depth: float
+    colour: str                      # #rrggbb
+
+
+class FurnitureSpec(BaseModel):
+    id: str
+    label: str = ""
+    level: str
+    room: str
+    kind: str
+    outline: list[Point]             # the footprint in plan
+    z0: float
+    height: float
+    ifc: str = "NOTDEFINED"
+    rot: int = 0
+    w: float = 0.0
+    d: float = 0.0
+    boxes: list[BoxSpec]
+
+
+class CoveringSpec(BaseModel):
+    """A finish on a floor or on the inside of a wall: a thin skin, with the colour of the finish."""
+    id: str
+    label: str = ""
+    level: str
+    room: str
+    kind: Literal["floor", "wall"]
+    finish: str                      # the name or colour the request used, for the quantities
+    colour: str                      # #rrggbb
+    thickness: float
+    z0: float
+    area: float
+    outline: list[Point] = Field(default_factory=list)         # floor: the plan polygon
+    start: Point | None = None                                 # wall: the wall piece's centreline
+    end: Point | None = None
+    normal: Point | None = None                                # unit vector from the wall into the room
+    wall_thickness: float = 0.0
+    length: float = 0.0
+    height: float = 0.0
+    holes: list[tuple[float, float, float, float]] = Field(default_factory=list)    # openings in the wall: (a0, z0, a1, z1) along and up
+
+
 class SpaceSpec(BaseModel):
     id: str
     name: str
@@ -106,6 +152,8 @@ class BuildingSpec(BaseModel):
     openings: list[OpeningSpec] = Field(default_factory=list)
     stairs: list[StairSpec] = Field(default_factory=list)
     spaces: list[SpaceSpec] = Field(default_factory=list)
+    furniture: list[FurnitureSpec] = Field(default_factory=list)
+    coverings: list[CoveringSpec] = Field(default_factory=list)
 
     def level_elevation(self, level_id: str) -> float:
         return next(lv.elevation for lv in self.levels if lv.id == level_id)
@@ -114,4 +162,5 @@ class BuildingSpec(BaseModel):
         return next(w for w in self.walls if w.id == wall_id)
 
     def element_count(self) -> int:
-        return len(self.walls) + len(self.slabs) + len(self.roofs) + len(self.openings) + len(self.spaces) + len(self.stairs)
+        return (len(self.walls) + len(self.slabs) + len(self.roofs) + len(self.openings) + len(self.spaces) + len(self.stairs)
+                + len(self.furniture) + len(self.coverings))

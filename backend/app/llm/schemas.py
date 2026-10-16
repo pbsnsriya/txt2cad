@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-STEP_KINDS = ["project", "storey", "room", "rearrange", "door", "window", "stair", "roof", "material", "delete", "remark"]
+STEP_KINDS = ["project", "storey", "room", "rearrange", "door", "window", "stair", "roof", "material", "furnish", "furniture", "finish", "delete", "remark"]
 REQUIREMENT_KINDS = ["storeys", "room", "feature", "area", "dimension", "adjacent", "orientation", "window", "door", "material", "style", "other"]
 
 _step_props: dict[str, Any] = {
@@ -17,7 +17,8 @@ _step_props: dict[str, Any] = {
         "name": {"type": "string"}, "kind": {"type": "string"}, "rect": {"type": "array", "items": {"type": "number"}}, "roofed": {"type": "boolean"}},
         "required": ["name", "rect"]}},
     "roofed": {"type": "boolean"}, "room": {"type": "string"}, "to": {"type": "string"}, "side": {"type": "string"},
-    "to_level": {"type": "string"}, "at": {"type": "number"}, "width": {"type": "number"}, "sill": {"type": "number"}, "material": {"type": "string"}, "text": {"type": "string"},
+    "to_level": {"type": "string"}, "at": {"type": "number"}, "across": {"type": "number"}, "depth": {"type": "number"}, "rotation": {"type": "integer"},
+    "colour": {"type": "string"}, "floor": {"type": "string"}, "walls": {"type": "string"          }, "width": {"type": "number"}, "sill": {"type": "number"}, "material": {"type": "string"}, "text": {"type": "string"},
 }
 
 BUILD_SCHEMA: dict[str, Any] = {

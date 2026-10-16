@@ -115,7 +115,7 @@ def test_clicked_elements_are_described_in_words_the_model_can_use():
     from app.domain.describe import describe_focus
     d = house()
     assert describe_focus(d, "wall.L1.kitchen.E") == "the east exterior wall wall.L1.kitchen.E of Kitchen (kitchen) on L1"
-    assert describe_focus(d, "wall.L1.hall~living") == "the partition wall wall.L1.hall~living between Hall (hall) and Living (living) on L1"
+    assert describe_focus(d, "wall.L1.hall~living").startswith("the partition wall wall.L1.hall~living between Hall (hall) and Living (living) on L1, ")
     assert describe_focus(d, "door.hall.living") == "the door door.hall.living between Hall (hall) and Living (living)"
     assert describe_focus(d, "window.living.S") == "the window window.living.S on the south wall of Living (living)"
     assert describe_focus(d, "room.L1.kitchen").startswith("the room kitchen 'Kitchen'")

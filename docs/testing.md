@@ -87,6 +87,17 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 | F08-E1 | edge | Screens scanned for accessibility | No serious or critical axe violations | e2e |
 | F08-E2 | edge | Contrast of every text pair in both themes | At least 4.5:1 | `design/contrast.py` |
 
+## F03 Picking parts
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F03-H1 to H2 | happy | Click a part, then send | A tag and a viewer note; the request carries its GlobalId and shows what it was about | e2e |
+| F03-H3 | happy | Shift-click more parts | One tag each, "N selected", all GlobalIds sent | e2e |
+| F03-H4 | happy | Close one tag, then Unpick | Only that part leaves the selection; then none | e2e |
+| F03-H5 | happy | Select area, drag a box | The box is drawn while dragging; everything it touches is tagged | e2e |
+| F03-E1, E3 | edge | Orbit by dragging; click in area mode | Nothing is picked | e2e |
+| F03-S | unit | Several parts, a wall between rooms, unknown ids, long selections | One block for the model, with the rooms involved | `test_selection.py` |
+
 ## F09 Stated sizes
 
 | Case | Type | Steps | Expected | Auto |
@@ -124,6 +135,22 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 | Case | Type | Steps | Expected | Auto |
 | --- | --- | --- | --- | --- |
 | F14-H1 | happy | Open the data note on Home, open the model menu, build with the practice model | The note and the per-model destination are shown; the browser contacts only this computer | e2e |
+
+## F15 Interiors
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F15-H1 | happy | Ask for a furnished house with oak floors and cream walls | An Interiors phase, furniture and finishes in the quantities, no more "furnish" suggestion | e2e |
+| F15-H2 | happy | Build an unfurnished house | "Furnish every room" and a floor are suggested | e2e |
+| F15-U | unit | Every catalogue shape stays inside its footprint; placement, overlaps, door swings; finishes; coverings with holes; IFC geometry; DXF layer; quantities; archways | As described | `test_interiors.py` |
+
+## F16 Limits and the gate
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F16-U | unit | A model that never stops writing invalid steps | The run is cut off, fails fast and saves nothing | `test_limits.py` |
+| F16-G | unit | Nothing met, one room for many, far too small, no doors, an edit that wipes the building | Refused with reasons; a sound result passes | `test_limits.py` |
+| F16-M | unit | Whole-word matching, courtyards open to the sky, L and U outlines | As described | `test_matching.py` |
 
 ## Checked by hand
 

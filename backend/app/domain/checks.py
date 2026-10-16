@@ -13,6 +13,8 @@ from .design import Design
 UNSUPPORTED_FEATURES = {"porch", "balcony", "basement", "pool", "garden", "furniture"}
 ALWAYS_BUILDABLE = {"storeys", "room", "window", "door"}
 WHOLE_BUILDING_WORDS = {"studio", "flat", "apartment", "house", "home", "bungalow", "cabin", "villa", "cottage", "townhouse", "building"}
+FURNITURE_WORDS = {"furniture", "furnished", "furnishing", "interior", "interiors", "furnish"}
+HABITABLE = {"living", "bedroom", "kitchen", "dining", "bathroom", "office"}
 SHAPE_WORDS = {"courtyard", "patio", "atrium", "l-shaped", "l shaped", "l-shape", "l shape", "u-shaped", "u shaped", "u-shape", "u shape"}
 ROOF_WORDS = {"roof", "pitched", "pitched roof", "gable", "gabled", "hip", "hipped", "shed", "mono-pitch", "monopitch", "sloped", "flat roof"}
 
@@ -28,7 +30,7 @@ def normalise(raw: dict[str, Any]) -> dict[str, Any]:
     supported = True if kind in ALWAYS_BUILDABLE else raw.get("supported", True) is not False
     if kind == "feature" and keyword in UNSUPPORTED_FEATURES:
         supported = False
-    if kind == "feature" and (keyword in ROOF_WORDS or keyword in SHAPE_WORDS):
+    if kind == "feature" and (keyword in ROOF_WORDS or keyword in SHAPE_WORDS or keyword in FURNITURE_WORDS):
         supported = True
     return {"kind": kind, "text": raw.get("text", ""), "supported": supported, "params": params}
 
@@ -185,6 +187,15 @@ def _check_roof(design: Design, r: dict[str, Any]) -> tuple[str, str]:
                      f"{'gable, hip or shed' if want == 'pitched' else want} (and pitch in degrees, 5 to 60, default 30)")
 
 
+def _check_furniture(design: Design) -> tuple[str, str]:
+    rooms = [r for r in design.rooms if r.kind in HABITABLE]
+    furnished = [r for r in rooms if any(f.room == r.id for f in design.furniture)]
+    if rooms and len(furnished) * 2 >= len(rooms):
+        return "met", f"{len(design.furniture)} pieces in {len(furnished)} of {len(rooms)} rooms"
+    return "unmet", (f"only {len(furnished)} of {len(rooms)} living, sleeping, cooking, dining, washing and working rooms have furniture; "
+                     "send one furnish step with room \"all\"")
+
+
 def _check_dimension(design: Design, p: dict[str, Any]) -> tuple[str, str]:
     want = (float(p["width"]), float(p["depth"]))
     asked = f"asked {want[0]:.1f} x {want[1]:.1f} m"
@@ -233,6 +244,8 @@ def check(design: Design, requirements: list[dict[str, Any]]) -> list[dict[str, 
         p = r.get("params", {})
         if not r.get("supported", True):
             r["status"], r["detail"] = "unsupported", "this tool cannot build it yet; noted in the version summary"
+        elif r["kind"] == "feature" and str(p.get("keyword", "")).lower() in FURNITURE_WORDS:
+            r["status"], r["detail"] = _check_furniture(design)
         elif r["kind"] == "feature" and str(p.get("keyword", "")).lower() in SHAPE_WORDS:
             r["status"], r["detail"] = _check_shape(design, str(p["keyword"]), r.get("text", ""))
         elif r["kind"] == "feature" and str(p.get("keyword", "")).lower() in ROOF_WORDS:

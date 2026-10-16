@@ -23,7 +23,7 @@ DIM_OFFSET_M = 1.8
 # The stock EZDXF dimstyle scales to centimetres (dimlfac 100); the drawing is in metres, so say so.
 DIM_OVERRIDE = {"dimlfac": 1.0, "dimdec": 2, "dimtxt": 0.25, "dimasz": 0.2, "dimexe": 0.15, "dimexo": 0.1}
 LAYERS: dict[str, int] = {
-    "A-WALL": 7, "A-WALL-PATT": 8, "A-DOOR": 3, "A-GLAZ": 5, "A-AREA": 9, "A-AREA-IDEN": 7, "A-ANNO-DIMS": 2, "A-ANNO-TTLB": 7, "A-FLOR-STRS": 6,
+    "A-WALL": 7, "A-WALL-PATT": 8, "A-DOOR": 3, "A-GLAZ": 5, "A-AREA": 9, "A-AREA-IDEN": 7, "A-ANNO-DIMS": 2, "A-ANNO-TTLB": 7, "A-FLOR-STRS": 6, "A-FURN": 30, "A-FLOR-FINI": 9,
 }
 
 
@@ -68,6 +68,7 @@ def build_dxf(spec: BuildingSpec) -> Drawing:
         _draw_walls(msp, spec, lv.id, walls, dx, dy)
         _draw_openings(msp, spec, walls, lv.id, dx, dy)
         _draw_stairs(msp, spec, lv.id, dx, dy)
+        _draw_furniture(msp, spec, lv.id, dx, dy)
         for sp in (s for s in spec.spaces if s.level == lv.id):
             ring = [at(p) for p in sp.outline]
             msp.add_lwpolyline(ring, close=True, dxfattribs={"layer": "A-AREA"})
@@ -109,6 +110,8 @@ def _draw_openings(msp, spec: BuildingSpec, walls: list[WallSpec], level: str, d
         (ux, uy), (nx, ny) = _axes(w)
         cx, cy = w.start[0] + ux * o.offset + dx, w.start[1] + uy * o.offset + dy
         hw, ht = o.width / 2, w.thickness / 2
+        if o.kind == "door" and o.style == "opening":
+            continue                                   # an archway is just a gap in the wall
         if o.kind == "door":
             hinge = (cx - ux * hw, cy - uy * hw)
             tip = (hinge[0] + nx * o.width, hinge[1] + ny * o.width)
@@ -121,6 +124,17 @@ def _draw_openings(msp, spec: BuildingSpec, walls: list[WallSpec], level: str, d
             for off in (-ht, 0.0, ht):
                 msp.add_line((cx - ux * hw + nx * off, cy - uy * hw + ny * off), (cx + ux * hw + nx * off, cy + uy * hw + ny * off),
                              dxfattribs={"layer": "A-GLAZ"})
+
+
+def _draw_furniture(msp, spec: BuildingSpec, level: str, dx: float, dy: float) -> None:
+    """Each piece as its footprint, with a line from the middle to the front edge so you can tell which way it faces."""
+    fronts = {0: (0.0, 1.0), 90: (-1.0, 0.0), 180: (0.0, -1.0), 270: (1.0, 0.0)}
+    for f in (x for x in spec.furniture if x.level == level):
+        ring = [(px + dx, py + dy) for px, py in f.outline]
+        msp.add_lwpolyline(ring, close=True, dxfattribs={"layer": "A-FURN"})
+        cx, cy = sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring)
+        fx, fy = fronts[f.rot]
+        msp.add_line((cx, cy), (cx + fx * f.d / 2, cy + fy * f.d / 2), dxfattribs={"layer": "A-FURN"})
 
 
 def _draw_stairs(msp, spec: BuildingSpec, level: str, dx: float, dy: float) -> None:

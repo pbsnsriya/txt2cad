@@ -25,8 +25,8 @@ def test_nothing_built_nothing_suggested():
 
 def test_a_flat_roofed_house_is_offered_a_pitched_roof_and_a_study_beside_the_kitchen():
     d = build(STOREY, mk("Kitchen", "kitchen", [0, 0, 4, 4]), mk("Living Room", "living", [4, 0, 5, 4]), mk("Bedroom 1", "bedroom", [0, 4, 9, 4]))
-    got = suggest(d)
-    assert got[0] == "Give it a gable roof." and "Add a study next to the Kitchen." in got and len(got) == 3
+    got = suggest(d, limit=10)
+    assert got[0] == "Give it a gable roof." and "Add a study next to the Kitchen." in got and len(suggest(d)) == 3
 
 
 def test_suggestions_name_rooms_that_exist_and_depend_on_the_design():

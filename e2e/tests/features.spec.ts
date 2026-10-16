@@ -77,3 +77,22 @@ test('F14-H1 the data statement is on Home and in the model menu, and the offlin
   const outside = [...hosts].filter((h) => h && !['127.0.0.1', 'localhost'].includes(h));
   expect(outside, 'requests to hosts other than this computer').toEqual([]);
 });
+
+test('F15-H1 a furnished house with finishes shows the Interiors phase, furniture and finishes in the quantities, and stops suggesting to furnish', async ({ page }) => {
+  await build(page, 'A one storey house with a kitchen, a living room and two bedrooms, furnished, with oak floors and cream walls.');
+  await expect(page.getByText('Interiors', { exact: true })).toBeVisible();
+  await expect(page.getByText('The rooms are furnished').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Quantities' }).click();
+  await expect(page.getByText('Sofa', { exact: true })).toBeVisible();
+  await expect(page.getByText('Floor finish: oak')).toBeVisible();
+  await expect(page.getByText('Wall finish: cream')).toBeVisible();
+  await page.getByRole('tab', { name: '3D view' }).click();
+  await expect(page.getByTestId('suggestions')).not.toContainText('Furnish every room');
+});
+
+test('F15-H2 an unfurnished house is offered furniture and a floor', async ({ page }) => {
+  await build(page, 'A one storey house with a kitchen, a living room and two bedrooms.');
+  const chips = page.getByTestId('suggestions');
+  await expect(chips).toContainText('Furnish every room.');
+  await expect(chips).toContainText('oak floor');
+});

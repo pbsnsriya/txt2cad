@@ -13,9 +13,11 @@ from dataclasses import dataclass
 from shapely.geometry import MultiPolygon, Polygon, box
 from shapely.ops import unary_union
 
+from .catalogue import CATALOGUE, COLOURS, FLOORS, PAINTS, PART_COLOURS, UnknownName, parts, resolve
 from .design import Design, Room, Side
+from .furnish import DoesNotFit, check_fit, furniture_polygon, keep_outs
 from .roofs import effective_pitch, is_rectangle, ridge_axis
-from .spec import BuildingSpec, LevelSpec, OpeningSpec, RoofSpec, SlabSpec, SpaceSpec, StairSpec, WallSpec
+from .spec import BoxSpec, BuildingSpec, CoveringSpec, FurnitureSpec, LevelSpec, OpeningSpec, RoofSpec, SlabSpec, SpaceSpec, StairSpec, WallSpec
 
 EPS = 1e-6
 EXTERIOR_THICKNESS = 0.30
@@ -23,6 +25,7 @@ PARTITION_THICKNESS = 0.12
 SLAB_THICKNESS = 0.20
 OPENING_END_MARGIN = 0.15      # keep openings this far from a wall end
 OPENING_GAP = 0.10             # and this far from each other
+ARCHWAY_END_MARGIN = 0.05      # an archway can take almost the whole wall
 SPACE_INSET = 0.10
 MIN_PIECE_LENGTH = 0.30        # shorter slivers are not walls worth modelling
 MIN_ROOF_AREA = 0.5
@@ -150,6 +153,7 @@ def derive(design: Design) -> BuildingSpec:
     _slabs_and_roofs(design, spec)
     _spaces(design, spec)
     _openings(design, spec, pieces)
+    _interiors(design, spec, pieces)
     return spec
 
 
@@ -243,9 +247,9 @@ def _spaces(design: Design, spec: BuildingSpec) -> None:
                                      outline=list(inner.exterior.coords)[:-1], area=round(inner.area, 2)))
 
 
-def _free_centre(length: float, width: float, preferred: float, taken: list[tuple[float, float]]) -> float | None:
+def _free_centre(length: float, width: float, preferred: float, taken: list[tuple[float, float]], margin: float = OPENING_END_MARGIN) -> float | None:
     """Centre nearest `preferred` where an opening of `width` fits without touching the ends or other openings."""
-    lo, hi = OPENING_END_MARGIN + width / 2, length - OPENING_END_MARGIN - width / 2
+    lo, hi = margin + width / 2, length - margin - width / 2
     if hi < lo - EPS:
         return None
     best: float | None = None
@@ -263,15 +267,18 @@ def _openings(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
     taken: dict[str, list[tuple[float, float]]] = {}
 
     def place(candidates: list[Piece], at: float, width: float, height: float, sill: float, oid: str, kind: str, style: str, what: str, label: str) -> None:
+        margin = ARCHWAY_END_MARGIN if style == "opening" else OPENING_END_MARGIN        # an archway may run nearly the whole wall
         for p in candidates:
-            centre = _free_centre(p.length, width, at * p.length, taken.get(p.id, []))
+            centre = _free_centre(p.length, width, at * p.length, taken.get(p.id, []), margin)
             if centre is None:
                 continue
             taken.setdefault(p.id, []).append((centre - width / 2, centre + width / 2))
             spec.openings.append(OpeningSpec(id=oid, label=label, kind=kind, host=p.id, offset=round(centre, 3), width=width, height=height,  # type: ignore[arg-type]
                                              sill=sill, style=style, level=p.level))
             return
-        raise DesignError(f"{what}: no free space for a {width} m opening on the chosen wall; make the wall longer, use a narrower opening or another side", oid)
+        longest = max((p.length for p in candidates), default=0.0)
+        hint = (f"; for a gap that wide use kind \"opening\" (an archway can be up to {longest - 0.1:.1f} m)" if style != "opening" and width > longest - 2 * OPENING_END_MARGIN > 0 else "")
+        raise DesignError(f"{what}: no free space for a {width} m opening on the chosen wall; make the wall longer, use a narrower opening or another side{hint}", oid)
 
     for door in design.doors:
         room = design.room(door.room)
@@ -306,7 +313,107 @@ def _openings(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
     assert all(o.host in by_id for o in spec.openings)
 
 
+COVERING_THICKNESS = 0.012
+
+
+def _interiors(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
+    """Furniture (checked: inside its room, not on another piece, not where a door swings or a stair runs) and the floor and wall finishes."""
+    if design.furniture:
+        zones = keep_outs(spec)
+        for f in design.furniture:
+            room = design.room(f.room)
+            if room is None:
+                raise DesignError(f"furniture '{f.id}': unknown room '{f.room}'", f.id)
+            item = CATALOGUE.get(f.kind)
+            if item is None:
+                raise DesignError(f"furniture '{f.id}': unknown kind '{f.kind}'", f.id)
+            poly = furniture_polygon(f)
+            before = [(g.id, furniture_polygon(g)) for g in design.furniture if g.room == f.room and g.id < f.id]
+            try:
+                check_fit(room, poly, f"{item.label} '{f.id}'", before)
+            except DoesNotFit as exc:
+                raise DesignError(str(exc), f.id) from exc
+            if any(poly.intersection(z).area > 1e-3 for z in zones.get(room.level, [])):
+                raise DesignError(f"{item.label} '{f.id}' is where a door swings or a stair runs in '{room.name}'; put it on another wall or position", f.id)
+            try:
+                main = resolve(f.colour, COLOURS, "colour") if f.colour else (PART_COLOURS.get(item.colour) or COLOURS[item.colour])
+            except UnknownName as exc:
+                raise DesignError(f"furniture '{f.id}': {exc}", f.id) from exc
+            z = spec.level_elevation(room.level)
+            boxes: list[BoxSpec] = []
+            for x0, y0, x1, y1, z0, z1, key in parts(f.kind, f.w, f.d, f.h):
+                if z1 - z0 < 1e-3 or x1 - x0 < 1e-3 or y1 - y0 < 1e-3:
+                    continue
+                ring = affinity_rotate(box(x0, y0, x1, y1), f.rot).exterior.coords
+                boxes.append(BoxSpec(outline=[(round(px + f.x, 4), round(py + f.y, 4)) for px, py in list(ring)[:-1]], z0=round(z + z0, 4), depth=round(z1 - z0, 4),
+                                     colour=main if key == "main" else PART_COLOURS[key]))
+            spec.furniture.append(FurnitureSpec(id=f.id, label=f"{item.label}: {room.name}", level=room.level, room=room.id, kind=f.kind,
+                                                outline=[(round(px, 4), round(py, 4)) for px, py in list(poly.exterior.coords)[:-1]], z0=z, height=f.h,
+                                                ifc=item.ifc, rot=f.rot, w=f.w, d=f.d, boxes=boxes))
+    if any(r.floor or r.walls for r in design.rooms):
+        _coverings(design, spec, pieces)
+
+
+def affinity_rotate(poly: Polygon, rot: int) -> Polygon:
+    from shapely import affinity
+    return affinity.rotate(poly, rot, origin=(0, 0))
+
+
+def _coverings(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
+    sides = exterior_sides(design)
+    holes_by_wall: dict[str, list[tuple[float, float, float, float]]] = {}
+    for o in spec.openings:
+        holes_by_wall.setdefault(o.host, []).append((o.offset - o.width / 2, o.sill, o.offset + o.width / 2, o.sill + o.height))
+    for r in design.rooms:
+        z = spec.level_elevation(r.level)
+        try:
+            floor = resolve(r.floor, FLOORS, "floor finish") if r.floor else None
+            paint = resolve(r.walls, PAINTS, "wall paint") if r.walls else None
+        except UnknownName as exc:
+            raise DesignError(f"room '{r.name}': {exc}") from exc
+        x, y, w, d = r.rect
+        if floor:
+            ins = {s: (EXTERIOR_THICKNESS if s in sides[r.id] else PARTITION_THICKNESS) / 2 for s in ("N", "S", "E", "W")}
+            x0, y0, x1, y1 = x + ins["W"], y + ins["S"], x + w - ins["E"], y + d - ins["N"]
+            spec.coverings.append(CoveringSpec(id=f"covering.floor.{r.level}.{r.id}", label=f"Floor finish: {r.name} ({r.floor})", level=r.level, room=r.id, kind="floor",
+                                               finish=str(r.floor), colour=floor, thickness=COVERING_THICKNESS, z0=z, area=round((x1 - x0) * (y1 - y0), 2),
+                                               outline=[(x0, y0), (x1, y0), (x1, y1), (x0, y1)]))
+        if not paint:
+            continue
+        cx, cy = x + w / 2, y + d / 2
+        lv_h = design.level(r.level).height  # type: ignore[union-attr]
+        for p in (q for q in pieces if q.level == r.level and r.id in (q.room, q.other)):
+            ux, uy = (p.end[0] - p.start[0]) / p.length, (p.end[1] - p.start[1]) / p.length
+            n = (-uy, ux)
+            mid = ((p.start[0] + p.end[0]) / 2, (p.start[1] + p.end[1]) / 2)
+            if (cx - mid[0]) * n[0] + (cy - mid[1]) * n[1] < 0:
+                n = (uy, -ux)
+            t = EXTERIOR_THICKNESS if p.other is None else PARTITION_THICKNESS
+            holes = sorted(holes_by_wall.get(p.id, []))
+            hole_area = sum((a1 - a0) * (b1 - b0) for a0, b0, a1, b1 in holes)
+            spec.coverings.append(CoveringSpec(
+                id=f"covering.wall.{p.id}.{r.id}", label=f"Wall finish: {r.name}, {SIDE_NAMES[p.side]} wall ({r.walls})" if p.room == r.id else f"Wall finish: {r.name}, shared wall ({r.walls})",
+                level=r.level, room=r.id, kind="wall", finish=str(r.walls), colour=paint, thickness=COVERING_THICKNESS, z0=z,
+                area=round(max(p.length * lv_h - hole_area, 0.0), 2), start=p.start, end=p.end, normal=n, wall_thickness=t, length=round(p.length, 4), height=lv_h, holes=holes))
+
+
 MAX_PRUNED_OPENINGS = 40
+
+
+def prune_blocking_furniture(design: Design) -> tuple[Design, list[str]]:
+    """A new door or stair may land where a piece stands. The piece gives way (and the version says so) rather than the door being refused."""
+    removed: list[str] = []
+    current = design
+    for _ in range(MAX_PRUNED_OPENINGS):
+        try:
+            derive(current)
+            return current, removed
+        except DesignError as exc:
+            if exc.opening_id is None or not any(f.id == exc.opening_id for f in current.furniture):
+                raise
+            current = current.model_copy(update={"furniture": [f for f in current.furniture if f.id != exc.opening_id]})
+            removed.append(f"furniture {exc.opening_id} removed: it stood where the new door or stair goes")
+    raise DesignError("too many pieces of furniture are in the way; move or delete some first")
 
 
 def prune_invalid_openings(design: Design) -> tuple[Design, list[str]]:
@@ -322,9 +429,11 @@ def prune_invalid_openings(design: Design) -> tuple[Design, list[str]]:
             if exc.opening_id is None:
                 raise
             kind = ("door" if any(d.id == exc.opening_id for d in current.doors) else
-                    "stair" if any(t.id == exc.opening_id for t in current.stairs) else "window")
+                    "stair" if any(t.id == exc.opening_id for t in current.stairs) else
+                    "furniture" if any(f.id == exc.opening_id for f in current.furniture) else "window")
             current = current.model_copy(update={"doors": [d for d in current.doors if d.id != exc.opening_id],
                                                  "windows": [w for w in current.windows if w.id != exc.opening_id],
-                                                 "stairs": [t for t in current.stairs if t.id != exc.opening_id]})
+                                                 "stairs": [t for t in current.stairs if t.id != exc.opening_id],
+                                                 "furniture": [f for f in current.furniture if f.id != exc.opening_id]})
             removed.append(f"{kind} {exc.opening_id} removed: {exc}")
     raise DesignError("too many openings no longer fit; rearrange the rooms first")

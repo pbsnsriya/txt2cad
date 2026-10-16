@@ -75,6 +75,16 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
 - **Layout options** (`pipeline/layouts.py`). A run with `layout` starts from an empty design, adds a hint pushing the plan towards a different arrangement, and is saved
   as the next version of the project with the model's one-line "Difference:" in its summary.
 - **Rearranging a storey** keeps the rooms that fit and reports each one that does not, instead of rejecting the whole storey.
+- **Limits and the gate** (`pipeline/run.py`, `pipeline/gate.py`). A round is cut off (the request carries a stop flag the provider honours) when it passes 140 steps, 25 rejections,
+  150 s, or the run passes 330 s; a round that fixes nothing ends the repair loop. After the last round a gate refuses the result when none of the checkable requests is met, a
+  many-room request got one room, the design is under half the stated area, no room has a door, or an edit would remove most of the building. Nothing is saved then.
+- **Picking parts** (`viewer/IfcViewer.ts`, `domain/describe.py`). The viewer keeps a set of picked parts (click, Shift-click, or a dragged box through the library's rectangle raycast),
+  and every one is a tag in the composer. The request carries all their GlobalIds; the server maps each to a design element and tells the model each part in words, the rooms they
+  belong to, and (for a wall between two rooms) the exact step that opens it up.
+- **Interiors** (`domain/catalogue.py`, `domain/furnish.py`, `domain/derive.py`). A catalogue of furniture (size, and a shape of a few boxes), placement against a wall or in the middle with
+  fit checks, a room-by-room layout for `furnish`, and per-room floor and wall finishes. Derive validates furniture (inside the room, no overlaps, clear of door swings and stairs) and
+  produces furniture and thin covering skins (the wall skins have holes where the openings are); IFC writes them as IfcFurniture and IfcCovering, DXF as footprints on A-FURN.
+  A new door or stair moves furniture out of its way; a door kind "opening" is an archway, and any door wider than 2 m is taken to be one.
 
 ## Geometry rules
 
