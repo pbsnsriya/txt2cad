@@ -8,6 +8,7 @@ from .design import Design
 
 UNSUPPORTED_FEATURES = {"porch", "balcony", "basement", "pool", "garden", "furniture"}
 ALWAYS_BUILDABLE = {"storeys", "room", "window", "door"}
+WHOLE_BUILDING_WORDS = {"studio", "flat", "apartment", "house", "home", "bungalow", "cabin", "villa", "cottage", "townhouse", "building"}
 ROOF_WORDS = {"roof", "pitched", "pitched roof", "gable", "gabled", "hip", "hipped", "shed", "mono-pitch", "monopitch", "sloped", "flat roof"}
 
 
@@ -16,6 +17,8 @@ def normalise(raw: dict[str, Any]) -> dict[str, Any]:
     params = {k: raw[k] for k in ("keyword", "count", "level", "side", "width", "depth", "area") if raw.get(k) is not None}
     keyword = str(params.get("keyword", "")).lower()
     kind = raw.get("kind", "other")
+    if kind in ("room", "feature") and keyword in WHOLE_BUILDING_WORDS:
+        kind = "other"                 # "a studio flat" names the building, not a room to look for
     # Small models mark everything "unsupported". For kinds this tool really builds, ignore the model's flag; keep it for the rest.
     supported = True if kind in ALWAYS_BUILDABLE else raw.get("supported", True) is not False
     if kind == "feature" and keyword in UNSUPPORTED_FEATURES:

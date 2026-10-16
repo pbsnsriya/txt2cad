@@ -9,12 +9,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from shapely.geometry import box
 
 from .design import Design, Door, Level, Room, Stair, Window, MAX_LEVELS
 from .roofs import MAX_PITCH, MIN_PITCH, roof_kind
 
+SKIPPED_PREFIX = "rearrange skipped a room: "
 STEP_KINDS = ("project", "storey", "room", "rearrange", "door", "window", "stair", "roof", "material", "delete", "remark")
 SIDE_WORDS = {"north": "N", "south": "S", "east": "E", "west": "W", "n": "N", "s": "S", "e": "E", "w": "W"}
 OVERLAP_TOLERANCE_M2 = 1e-6
@@ -174,8 +175,17 @@ def apply_step(design: Design, step: Step) -> Design:
             raise StepError(f"rearrange: unknown level '{step.level}' (levels: {', '.join(x.id for x in d.levels) or 'none yet'})")
         old = {r.name.lower(): r for r in d.rooms if r.level == lid}
         d.rooms = [r for r in d.rooms if r.level != lid]
+        skipped: list[str] = []
         for spec in step.rooms or []:
-            _apply_room(d, Step(step="room", level=lid, **{k: v for k, v in spec.items() if k in Step.model_fields and k not in ('level', 'step')}), keep=old)
+            try:
+                _apply_room(d, Step(step="room", level=lid, **{k: v for k, v in spec.items() if k in Step.model_fields and k not in ('level', 'step')}), keep=old)
+            except (StepError, ValidationError) as exc:
+                name = spec.get("name") or spec.get("kind") or "a room"
+                skipped.append(str(exc) if isinstance(exc, StepError) else f"room '{name}': {exc.errors()[0]['msg'].removeprefix('Value error, ')}")
+        if skipped and not any(r.level == lid for r in d.rooms):
+            raise StepError(f"rearrange: none of the {len(skipped)} rooms could be placed; the first problem was: {skipped[0]}")
+        for message in skipped:               # the rooms that fit stay; each one that did not is reported so the next round can fix it
+            d.notes.append(f"{SKIPPED_PREFIX}{message}")
         _drop_dangling(d)                     # rooms that disappeared take their doors, windows and stairs with them
     elif kind == "door":
         room = _room_ref(d, step.room, "door")

@@ -122,3 +122,22 @@ def test_clicked_elements_are_described_in_words_the_model_can_use():
     assert describe_focus(d, "stair.hall") == "the stair stair.hall in Hall (hall)"
     assert describe_focus(d, "floor.L2.1") == "the floor slab floor.L2.1 of L2"
     assert describe_focus(d, "nonsense") is None
+
+
+def test_a_rearrange_keeps_the_rooms_that_fit_and_reports_the_one_that_does_not():
+    from app.domain.steps import SKIPPED_PREFIX
+    d = Design()
+    for s in ({"step": "storey", "id": "L1", "height": 3},
+              {"step": "rearrange", "level": "L1", "rooms": [
+                  {"name": "Hall", "kind": "hall", "rect": [0, 0, 4, 4]},
+                  {"name": "Kitchen", "kind": "kitchen", "rect": [2, 0, 4, 4]},       # overlaps the hall
+                  {"name": "Living", "kind": "living", "rect": [4, 0, 5, 4]}]}):
+        d = apply_step(d, Step(**s))
+    assert sorted(r.name for r in d.rooms) == ["Hall", "Living"]
+    assert any(n.startswith(SKIPPED_PREFIX) and "Kitchen" in n and "overlaps 'Hall'" in n for n in d.notes)
+
+
+def test_a_rearrange_where_nothing_fits_is_still_rejected():
+    d = apply_step(Design(), Step(step="storey", id="L1", height=3))
+    with pytest.raises(StepError, match="none of the 2 rooms could be placed"):
+        apply_step(d, Step(step="rearrange", level="L1", rooms=[{"name": "A", "rect": [0, 0, 0.2, 0.2]}, {"name": "B", "rect": [0, 0, 0.3, 0.3]}]))
