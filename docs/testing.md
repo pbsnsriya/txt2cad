@@ -152,6 +152,22 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 | F16-G | unit | Nothing met, one room for many, far too small, no doors, an edit that wipes the building | Refused with reasons; a sound result passes | `test_limits.py` |
 | F16-M | unit | Whole-word matching, courtyards open to the sky, L and U outlines | As described | `test_matching.py` |
 
+## F17 to F19 What it builds, feedback, pictures
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F17-H1 | happy | Open "What it builds today"; type a request that names a basement and a pool | The three groups are listed; a note names what is not built, and goes when the words do | e2e |
+| F18-H1 | happy | Open Feedback after a build, rate, write, tick the box | The preview is the whole note; the request is in it only when ticked; nothing leaves the computer | e2e |
+| F19-H1 | happy | Press Save picture | A real PNG named after the project and version | e2e |
+
+## Evaluation
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| EV-1 | unit | The 47 cases are well formed; each kind of miss is caught by the scorer | As described | `test_eval.py` |
+| EV-2 | smoke | The offline model passes the cases marked for it | All pass | `test_eval.py` |
+| EV-3 | live | `python -m evals.run --live` | A pass rate by category; see `docs/evaluation.md` | by hand, costs about $0.80 |
+
 ## Checked by hand
 
 - Visual glitches in the 3D view on real graphics hardware (the automated runs use a software renderer).

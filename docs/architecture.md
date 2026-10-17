@@ -74,6 +74,12 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
 - **Suggestions** (`domain/suggest.py`). Up to three follow-up requests chosen by rules from the design (no roof pitch, no study, a small bedroom ...), served with every version.
 - **Layout options** (`pipeline/layouts.py`). A run with `layout` starts from an empty design, adds a hint pushing the plan towards a different arrangement, and is saved
   as the next version of the project with the model's one-line "Difference:" in its summary.
+- **Plain names** (`steps.tidy_name`). A room's name is cleaned when it is placed: no ids, no level codes, no slugs ("bedroom-2" is "Bedroom 2", "L1 hall" is "Hall"). A room can be referred to with a level in front or behind.
+- **Finishing touches** (`domain/autofix.py`). After each round, rooms with no way in get doors, rooms that need daylight get a window, and a storey with no stair gets one; each addition is
+  tried with derive and skipped if it does not fit. The evaluation set showed these were the commonest reason a result was not usable.
+- **What it builds** (`domain/envelope.py`). One list of supported, partial and unsupported things, served by `GET /api/capabilities`, shown on the Home screen, used for the warning under the
+  message box and rendered to `docs/supported.md` (a test keeps them equal).
+- **Evaluation** (`backend/evals`). 47 cases scored independently of the model's own checklist; `python -m evals.run --live` runs them against Gemini. See `docs/evaluation.md`.
 - **Rearranging a storey** keeps the rooms that fit and reports each one that does not, instead of rejecting the whole storey.
 - **Limits and the gate** (`pipeline/run.py`, `pipeline/gate.py`). A round is cut off (the request carries a stop flag the provider honours) when it passes 140 steps, 25 rejections,
   150 s, or the run passes 330 s; a round that fixes nothing ends the repair loop. After the last round a gate refuses the result when none of the checkable requests is met, a
@@ -84,7 +90,7 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
 - **Interiors** (`domain/catalogue.py`, `domain/furnish.py`, `domain/derive.py`). A catalogue of furniture (size, and a shape of a few boxes), placement against a wall or in the middle with
   fit checks, a room-by-room layout for `furnish`, and per-room floor and wall finishes. Derive validates furniture (inside the room, no overlaps, clear of door swings and stairs) and
   produces furniture and thin covering skins (the wall skins have holes where the openings are); IFC writes them as IfcFurniture and IfcCovering, DXF as footprints on A-FURN.
-  A new door or stair moves furniture out of its way; a door kind "opening" is an archway, and any door wider than 2 m is taken to be one.
+  Ceiling lights hang from the ceiling and may be over other furniture; `furnish` adds one for about every 14 m2 of a room. A new door or stair moves furniture out of its way; a door kind "opening" is an archway, and any door wider than 2 m is taken to be one.
 
 ## Geometry rules
 

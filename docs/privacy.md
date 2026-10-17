@@ -37,6 +37,11 @@ on the free tier may be used to improve its products and content sent on the pai
 The key lives in the backend's environment (`GEMINI_API_KEY`, for example in `backend/.env`, which is ignored by git). It is not stored in the database, not
 returned by the API (only the variable's name and whether it is set) and never sent to the browser.
 
+## Feedback
+
+The Feedback button writes a note on your screen and shows all of it. Your last request and the summary of what was built are left out unless you tick the box. Nothing is sent by the app:
+the button only opens a prefilled GitHub issue in a new tab, and it is only sent if you submit it there. A GitHub issue on a public repository is public.
+
 ## What it does not do
 
 - It does not encrypt the data folder. Anyone who can read your user account's files can read your projects.

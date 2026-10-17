@@ -5,6 +5,7 @@ All routes are under `/api`, JSON unless noted. The server accepts requests from
 | Method and path | Purpose |
 | --- | --- |
 | `GET /health` | Liveness and the default model profile. |
+| `GET /capabilities` | What the tool builds, partly builds and does not build, and the words that are flagged before you send. The Home screen and `docs/supported.md` say the same. |
 | `GET /llm/profiles` | Model profiles with a `ready` flag (the key variable is set, a model is chosen). |
 | `GET /projects` | Projects, newest first. |
 | `POST /projects` | Create a project: `{name}`. |
