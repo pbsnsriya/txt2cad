@@ -15,7 +15,7 @@ from typing import Any, AsyncIterator
 
 from .. import config
 from ..db import repo
-from ..domain import checks, sizes
+from ..domain import autofix, checks, sizes
 from ..domain.derive import DesignError, derive
 from ..domain.describe import describe, describe_selection
 from ..domain.design import Design
@@ -25,6 +25,7 @@ from ..llm.base import LLM, LLMError, LLMRequest
 from ..llm.prompts import BUILD_SYSTEM, REQUIREMENTS_SYSTEM
 from ..llm.schemas import BUILD_SCHEMA, REQUIREMENTS_SCHEMA
 from . import gate, layouts
+from .narrate import facts
 from .stream import COMPILE_POOL, PreviewWorker, StepStream
 
 
@@ -127,7 +128,7 @@ async def _run(inp: RunInput, emit) -> None:
     await emit("phase", "Understanding the request", mode=mode, model=inp.llm_label)
 
     req_raw = await _call_llm(inp, LLMRequest(REQUIREMENTS_SYSTEM, inp.prompt, "requirements", REQUIREMENTS_SCHEMA, meta={"prompt": inp.prompt}), emit=emit)
-    checklist = checks.merge_sizes([checks.normalise(r) for r in req_raw.get("requirements", [])], sizes.extract(inp.prompt))
+    checklist = checks.merge_sizes([checks.normalise(r) for r in req_raw.get("requirements", [])], [*sizes.extract(inp.prompt), *sizes.extract_furniture(inp.prompt)])
     await emit("checklist", f"{len(checklist)} requirements", items=checklist)
 
     focus = None if fresh else _focus_text(inp, design, guids)
@@ -179,6 +180,12 @@ async def _run(inp: RunInput, emit) -> None:
             if stream.over_limit:
                 design.notes.append(f"round {rnd + 1} was stopped early: {stream.limit_reason}")
             applied_total += stream.applied
+            design, finishing = autofix.complete(design)          # the doors, windows and stairs every building needs, when the model left them out
+            for text in finishing:
+                await emit("move", text[0].upper() + text[1:], index=-1, ok=True, phase="Finishing touches", why="every building needs this", kind="finishing", facts=facts(design), removed=[])
+            if finishing:
+                design.notes.extend(finishing)
+                previews.submit(design)
             results = checks.check(design, checklist)
             skipped = [n.removeprefix(SKIPPED_PREFIX) for n in design.notes[notes_before:] if n.startswith(SKIPPED_PREFIX)]
             feedback = [*stream.rejections, *skipped, *checks.unmet(results), *checks.completeness(design)]

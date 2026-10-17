@@ -1,0 +1,58 @@
+[
+  {"id": "h1", "mock": true, "category": "houses", "prompt": "A small one storey cabin with one bedroom and a kitchen.", "expect": {"storeys": 1, "rooms": {"bedroom": 1, "kitchen": 1}}},
+  {"id": "h2", "mock": true, "category": "houses", "prompt": "Two storey house with a kitchen, living room and three bedrooms, a garage.", "expect": {"storeys": 2, "rooms": {"bedroom": 3, "kitchen": 1, "living": 1, "garage": 1}}},
+  {"id": "h3", "category": "houses", "prompt": "A three storey townhouse with two bedrooms, a study and a bathroom.", "expect": {"storeys": 3, "rooms": {"bedroom": 2, "office": 1, "bathroom": 1}}},
+  {"id": "h4", "category": "houses", "prompt": "A bungalow with four bedrooms, two bathrooms, a kitchen and a living room.", "expect": {"storeys": 1, "rooms": {"bedroom": 4, "bathroom": 2, "kitchen": 1, "living": 1}}},
+  {"id": "h5", "category": "houses", "prompt": "A one storey house with an open plan kitchen and living room, a dining area and two bedrooms.", "expect": {"storeys": 1, "rooms": {"bedroom": 2, "kitchen": 1, "living": 1, "dining": 1}}},
+  {"id": "h6", "category": "houses", "prompt": "A family home for five over two floors: five bedrooms, three bathrooms, a kitchen, a dining room, a living room and a utility room.", "expect": {"storeys": 2, "rooms": {"bedroom": 5, "bathroom": 3, "kitchen": 1, "dining": 1, "living": 1, "utility": 1}}},
+  {"id": "h7", "category": "houses", "prompt": "A two storey house with the living room and kitchen downstairs and all the bedrooms upstairs.", "expect": {"storeys": 2, "rooms": {"living": 1, "kitchen": 1, "bedroom": 2}, "on_level": {"living": "L1", "kitchen": "L1", "bedroom": "L2"}}},
+  {"id": "h8", "category": "houses", "prompt": "A small holiday cottage with two bedrooms, a bathroom and a living kitchen.", "expect": {"rooms": {"bedroom": 2, "bathroom": 1, "kitchen": 1}}},
+  {"id": "h9", "category": "houses", "prompt": "A two storey house with the garage on the ground floor, four bedrooms upstairs and two bathrooms.", "expect": {"storeys": 2, "rooms": {"bedroom": 4, "bathroom": 2, "garage": 1}, "on_level": {"garage": "L1", "bedroom": "L2"}}},
+  {"id": "h10", "mock": true, "category": "houses", "prompt": "A modern house with a large living room, a kitchen, three bedrooms and a home office.", "expect": {"rooms": {"living": 1, "kitchen": 1, "bedroom": 3, "office": 1}}},
+
+  {"id": "f1", "category": "flats", "prompt": "Studio flat of 35 square metres with a kitchen area and a bathroom.", "expect": {"storeys": 1, "area": [31.5, 38.5], "rooms": {"bathroom": 1}}},
+  {"id": "f2", "mock": true, "category": "flats", "prompt": "A one bedroom flat with a living room, a kitchen and a bathroom.", "expect": {"storeys": 1, "rooms": {"bedroom": 1, "living": 1, "kitchen": 1, "bathroom": 1}}},
+  {"id": "f3", "category": "flats", "prompt": "A two bedroom apartment of about 70 square metres.", "expect": {"area": [63, 77], "rooms": {"bedroom": 2}}},
+  {"id": "f4", "category": "flats", "prompt": "A small studio, one main room plus a bathroom, 25 square metres in all.", "expect": {"area": [22.5, 27.5], "rooms": {"bathroom": 1}}},
+  {"id": "f5", "category": "flats", "prompt": "A three bedroom flat on one level with two bathrooms and an open living kitchen.", "expect": {"storeys": 1, "rooms": {"bedroom": 3, "bathroom": 2, "kitchen": 1}}},
+
+  {"id": "o1", "category": "commercial", "prompt": "Small office floor, 20 m by 15 m, open plan workspace, two meeting rooms, a kitchenette and two toilets.", "expect": {"footprint": [20, 15], "rooms": {"office": 1, "meeting": 2, "kitchen": 1, "bathroom": 2}}},
+  {"id": "o2", "category": "commercial", "prompt": "A one storey office with a reception, a meeting room and two offices.", "expect": {"storeys": 1, "rooms": {"reception": 1, "meeting": 1, "office": 2}}},
+  {"id": "o3", "category": "commercial", "prompt": "A small shop with a sales floor, a storeroom and a toilet.", "expect": {"rooms": {"retail": 1, "storage": 1, "bathroom": 1}}},
+  {"id": "o4", "category": "commercial", "prompt": "A two storey office building with six offices, a meeting room and toilets on each floor.", "expect": {"storeys": 2, "rooms": {"office": 6, "meeting": 1, "bathroom": 2}}},
+  {"id": "o5", "category": "commercial", "prompt": "A classroom block with four classrooms and a corridor.", "expect": {"rooms": {"classroom": 4}}},
+  {"id": "o6", "category": "commercial", "prompt": "A workshop with a large workshop floor, an office and a staff room.", "expect": {"rooms": {"workshop": 1, "office": 1}}},
+
+  {"id": "s1", "category": "sizes", "prompt": "A 3 bedroom bungalow, 12 m by 9 m overall, with a living room exactly 5 m by 4 m.", "expect": {"storeys": 1, "footprint": [12, 9], "room_dims": {"living": [5, 4]}, "rooms": {"bedroom": 3}}},
+  {"id": "s2", "category": "sizes", "prompt": "A one storey house 10 m by 8 m with two bedrooms, a kitchen and a living room.", "expect": {"footprint": [10, 8], "rooms": {"bedroom": 2, "kitchen": 1, "living": 1}}},
+  {"id": "s3", "category": "sizes", "prompt": "A house of 120 square metres on two floors with three bedrooms.", "expect": {"storeys": 2, "area": [108, 132], "rooms": {"bedroom": 3}}},
+  {"id": "s4", "category": "sizes", "prompt": "A one storey house with a kitchen 4 m by 3 m, a bedroom 3.5 m by 3.5 m and a living room 6 m by 4 m.", "expect": {"storeys": 1, "room_dims": {"kitchen": [4, 3], "bedroom": [3.5, 3.5], "living": [6, 4]}}},
+  {"id": "s5", "category": "sizes", "prompt": "A 400 sq ft cabin with one bedroom.", "expect": {"area": [33.4, 40.9], "rooms": {"bedroom": 1}}},
+  {"id": "s6", "category": "sizes", "prompt": "A one storey house with two bedrooms and a garage 3 m by 6 m.", "expect": {"room_dims": {"garage": [3, 6]}, "rooms": {"bedroom": 2}}},
+
+  {"id": "r1", "mock": true, "category": "roofs", "prompt": "A one storey house with two bedrooms and a pitched roof.", "expect": {"roof": "gable", "rooms": {"bedroom": 2}}},
+  {"id": "r2", "category": "roofs", "prompt": "A square one storey house with a hip roof.", "expect": {"roof": "hip"}},
+  {"id": "r3", "category": "roofs", "prompt": "A small workshop with a shed roof.", "expect": {"roof": "shed", "rooms": {"workshop": 1}}},
+
+  {"id": "i1", "mock": true, "category": "interiors", "prompt": "A one storey house with a kitchen, a living room and two bedrooms, fully furnished.", "expect": {"furnished": true, "rooms": {"bedroom": 2, "kitchen": 1, "living": 1}}},
+  {"id": "i2", "mock": true, "category": "interiors", "prompt": "A flat with a living room and a bedroom, with oak floors and cream walls.", "expect": {"floor": {"living": "oak"}, "walls": {"living": "cream", "bedroom": "cream"}, "rooms": {"living": 1, "bedroom": 1}}},
+  {"id": "i3", "category": "interiors", "prompt": "A studio with a sofa, a double bed and a kitchen counter.", "expect": {"furniture_kinds": ["sofa", "bed_double", "kitchen_counter"]}},
+  {"id": "i4", "category": "interiors", "prompt": "A house with a bedroom with a walnut floor and blue walls, a living room and a kitchen, furnished.", "expect": {"furnished": true, "floor": {"bedroom": "walnut"}, "walls": {"bedroom": "blue"}, "rooms": {"bedroom": 1, "living": 1, "kitchen": 1}}},
+
+  {"id": "sh1", "category": "shapes", "prompt": "An L-shaped house with three bedrooms.", "expect": {"shape": "L", "rooms": {"bedroom": 3}}},
+  {"id": "sh2", "category": "shapes", "prompt": "A U-shaped house around a courtyard with four bedrooms.", "expect": {"shape": "U", "courtyard": true, "rooms": {"bedroom": 4}}},
+  {"id": "sh3", "category": "shapes", "prompt": "A house built around a central courtyard.", "expect": {"courtyard": true}},
+
+  {"id": "u1", "category": "not built yet", "prompt": "A two storey house with a basement garage.", "expect": {"unsupported": ["basement"], "rooms": {"garage": 1}}},
+  {"id": "u2", "category": "not built yet", "prompt": "A bungalow with three bedrooms and a swimming pool.", "expect": {"unsupported": ["pool"], "rooms": {"bedroom": 3}}},
+  {"id": "u3", "category": "not built yet", "prompt": "A house with a curved wall in the living room and a balcony.", "expect": {"unsupported": ["curved", "balcony"], "rooms": {"living": 1}}},
+
+  {"id": "v1", "category": "vague", "prompt": "A nice modern villa for a family of five.", "expect": {"rooms": {"bedroom": 3}}},
+  {"id": "v2", "category": "vague", "prompt": "Something small and cosy for two people.", "expect": {"rooms": {"bedroom": 1}}},
+
+  {"id": "e1", "category": "edits", "base": "A one storey house with a kitchen, a living room and two bedrooms.", "prompt": "Add a study next to the kitchen.", "expect": {"rooms": {"office": 1, "kitchen": 1, "living": 1, "bedroom": 2}, "kept": ["kitchen", "living"]}},
+  {"id": "e2", "category": "edits", "base": "A one storey house with a kitchen, a living room and two bedrooms.", "prompt": "Make the living room 6 m by 4 m.", "expect": {"room_dims": {"living": [6, 4]}, "rooms": {"bedroom": 2, "kitchen": 1}}},
+  {"id": "e3", "category": "edits", "base": "A one storey house with a kitchen, a living room and two bedrooms.", "prompt": "Give it a gable roof.", "expect": {"roof": "gable", "rooms": {"bedroom": 2, "kitchen": 1, "living": 1}, "kept": ["kitchen", "living", "bedroom"]}},
+  {"id": "e4", "category": "edits", "base": "A one storey house with a kitchen, a living room and two bedrooms.", "prompt": "Furnish every room.", "expect": {"furnished": true, "kept": ["kitchen", "living", "bedroom"]}},
+  {"id": "e5", "category": "edits", "base": "A one storey house with a kitchen, a living room, two bedrooms and a bathroom.", "prompt": "Add a second bathroom.", "expect": {"rooms": {"bathroom": 2, "bedroom": 2}, "kept": ["kitchen", "living"]}}
+]

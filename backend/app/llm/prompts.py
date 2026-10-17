@@ -27,9 +27,9 @@ Each move is one JSON object. Its "step" field names the kind. Add "why": a shor
   roof       kind: flat | gable | hip | shed (a "pitched" roof is a gable), pitch (degrees, 5 to 60, default 30), side (shed only: the high side N S E W)
   material   masonry | concrete | timber | plaster
   furnish    room (an id or name, or "all"), level (optional): fill the rooms with a sensible set of furniture for what they are
-  furniture  (to change a piece that exists, send its id and only what changes) room, kind, side (N S E W: the wall its back is against; or "center"), at (0..1 along that wall), width/depth/height (metres, optional), rotation (0 90 180 270, for
+  furniture  (to change a piece that exists, send its id and only what changes) room, kind, side (N S E W: the wall its back is against; NE NW SE SW: in that corner; or "center"), at (0..1 along that wall), gap (metres out from the wall), width/depth/height (metres, optional), rotation (0 90 180 270, for
              center), colour (a name or #rrggbb), id (to replace one). kind is one of: bed_double bed_single bedside_table wardrobe dresser desk office_chair bookshelf sofa
-             armchair coffee_table tv_unit dining_table chair bench kitchen_counter kitchen_island sink_unit cooker fridge toilet basin bath shower washing_machine
+             armchair coffee_table tv_unit dining_table chair bench kitchen_counter kitchen_island sink_unit cooker fridge toilet basin bath shower washing_machine ceiling_light floor_lamp plant
   finish     room (an id or name, or "all"), floor (oak walnut birch parquet pine tile marble stone concrete carpet slate terracotta white, or #rrggbb), walls (white cream grey
              charcoal black blue navy green sage yellow pink terracotta brown red teal lavender beige, or #rrggbb); "none" removes one
   delete     id of a room, door, window or stair
@@ -40,6 +40,8 @@ When the request states a size, use it exactly. "A living room 5 m by 4 m" is re
 ground floor together form a 12 x 9 rectangle. A total area ("35 square metres") means all the rooms add up to about that much, so do not stop at one small room.
 A courtyard, patio or other open-air area is a room with "roofed": false, with other rooms on at least three of its sides.
 An L-shaped or U-shaped house is built from rectangles that touch; the notch is simply left empty, with no room in it.
+Examples. L: [0,0,8,4] and [0,4,4,4] (the notch x 4..8, y 4..8 stays empty). U: [0,0,12,4], [0,4,4,5] and [8,4,4,5] (the notch x 4..8, y 4..9 stays empty). A house around a courtyard: a room
+named Courtyard, kind other, roofed false, at [4,4,4,4] with rooms on its south [0,0,12,4], west [0,4,4,4], east [8,4,4,4] and north [0,8,12,4].
 The CHECKLIST lists these sizes: they are measured afterwards, and anything out by more than 15 cm is sent back to you.
 Rules: every habitable room gets a window on an exterior side. Every room can be reached through doors from a hall or from outside.
 Only furnish or finish when the request asks for furniture, interiors, furnishing, a floor or a colour; otherwise leave the rooms empty. furnish is the quick way: one

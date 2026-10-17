@@ -15,7 +15,7 @@ from shapely.ops import unary_union
 
 from .catalogue import CATALOGUE, COLOURS, FLOORS, PAINTS, PART_COLOURS, UnknownName, parts, resolve
 from .design import Design, Room, Side
-from .furnish import DoesNotFit, check_fit, furniture_polygon, keep_outs
+from .furnish import DoesNotFit, check_fit, furniture_polygon, is_ceiling, keep_outs
 from .roofs import effective_pitch, is_rectangle, ridge_axis
 from .spec import BoxSpec, BuildingSpec, CoveringSpec, FurnitureSpec, LevelSpec, OpeningSpec, RoofSpec, SlabSpec, SpaceSpec, StairSpec, WallSpec
 
@@ -328,18 +328,18 @@ def _interiors(design: Design, spec: BuildingSpec, pieces: list[Piece]) -> None:
             if item is None:
                 raise DesignError(f"furniture '{f.id}': unknown kind '{f.kind}'", f.id)
             poly = furniture_polygon(f)
-            before = [(g.id, furniture_polygon(g)) for g in design.furniture if g.room == f.room and g.id < f.id]
+            before = [(g.id, furniture_polygon(g)) for g in design.furniture if g.room == f.room and g.id < f.id and is_ceiling(g.kind) == is_ceiling(f.kind)]
             try:
                 check_fit(room, poly, f"{item.label} '{f.id}'", before)
             except DoesNotFit as exc:
                 raise DesignError(str(exc), f.id) from exc
-            if any(poly.intersection(z).area > 1e-3 for z in zones.get(room.level, [])):
+            if not is_ceiling(f.kind) and any(poly.intersection(z).area > 1e-3 for z in zones.get(room.level, [])):
                 raise DesignError(f"{item.label} '{f.id}' is where a door swings or a stair runs in '{room.name}'; put it on another wall or position", f.id)
             try:
                 main = resolve(f.colour, COLOURS, "colour") if f.colour else (PART_COLOURS.get(item.colour) or COLOURS[item.colour])
             except UnknownName as exc:
                 raise DesignError(f"furniture '{f.id}': {exc}", f.id) from exc
-            z = spec.level_elevation(room.level)
+            z = spec.level_elevation(room.level) + ((design.level(room.level).height - f.h) if is_ceiling(f.kind) else 0.0)  # type: ignore[union-attr]
             boxes: list[BoxSpec] = []
             for x0, y0, x1, y1, z0, z1, key in parts(f.kind, f.w, f.d, f.h):
                 if z1 - z0 < 1e-3 or x1 - x0 < 1e-3 or y1 - y0 < 1e-3:

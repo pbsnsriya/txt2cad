@@ -104,7 +104,7 @@ def test_furnish_fills_every_room_without_overlaps_or_blocked_doors():
     assert {"sofa", "tv_unit", "bed_double"} <= kinds or {"sofa", "tv_unit", "bed_single"} <= kinds
     assert {"sink_unit", "cooker", "fridge"} <= kinds
     assert len(spec.furniture) == len(d.furniture) > 8
-    polys = [furniture_polygon(f) for f in d.furniture if f.room == "living"]
+    polys = [furniture_polygon(f) for f in d.furniture if f.room == "living" and f.kind != "ceiling_light"]
     assert all(a.intersection(b).area < 1e-4 for i, a in enumerate(polys) for b in polys[i + 1:])
 
 
@@ -122,7 +122,7 @@ def test_furnish_keeps_pieces_off_the_door_swing():
     zones = keep_outs(spec)
     for f in spec.furniture:
         poly = Polygon(f.outline)
-        assert all(poly.intersection(z).area < 1e-3 for z in zones.get(f.level, [])), f.id
+        assert f.kind == "ceiling_light" or all(poly.intersection(z).area < 1e-3 for z in zones.get(f.level, [])), f.id
 
 
 def test_every_kind_of_room_gets_a_plausible_set_and_never_overlaps():
@@ -135,10 +135,12 @@ def test_every_kind_of_room_gets_a_plausible_set_and_never_overlaps():
             counter[k] = counter.get(k, 0) + 1
             return f"furn.{kind}.{k}.{counter[k]}"
         out = layout_room(room, [], [], nid)
-        polys = [furniture_polygon(f) for f in out]
+        polys = [furniture_polygon(f) for f in out if f.kind != "ceiling_light"]
         assert all(a.intersection(b).area < 1e-4 for i, a in enumerate(polys) for b in polys[i + 1:]), kind
-        if kind in ("hall", "garage"):
+        if kind in ("garage",):
             assert out == []
+        elif kind == "hall":
+            assert [f.kind for f in out] == ["ceiling_light"]
         else:
             assert out, kind
 
@@ -205,7 +207,8 @@ def furnished_model():
 def test_ifc_has_furniture_and_coverings_with_real_geometry():
     d, spec, model = furnished_model()
     pieces = model.by_type("IfcFurniture")
-    assert len(pieces) == len(d.furniture) and all(p.Name for p in pieces) and all(p.Tag.startswith("furn.") for p in pieces)
+    lamps = model.by_type("IfcLightFixture")
+    assert len(pieces) + len(lamps) == len(d.furniture) and all(p.Name for p in [*pieces, *lamps]) and all(p.Tag.startswith("furn.") for p in pieces)
     kinds = {c.PredefinedType for c in model.by_type("IfcCovering")}
     assert kinds == {"FLOORING", "CLADDING"}
     settings = ifcopenshell.geom.settings()
@@ -334,3 +337,45 @@ def test_a_door_wider_than_any_door_is_taken_to_mean_an_archway():
     assert [x.kind for x in d.doors if {x.room, x.to} == {"living", "kitchen"}] == ["opening"]
     d = house({"step": "door", "room": "Living", "to": "Kitchen", "width": 1.6, "kind": "double", "id": "door.living.kitchen"})
     assert [x.kind for x in d.doors if {x.room, x.to} == {"living", "kitchen"}] == ["double"]
+
+
+# --- lights, corners, gaps ---------------------------------------------------------------------------------------------------------------------
+def test_furnish_hangs_lights_from_the_ceiling_over_the_furniture():
+    d = house({"step": "furnish", "room": "all"})
+    lights = [f for f in d.furniture if f.kind == "ceiling_light"]
+    assert {f.room for f in lights} == {"living", "kitchen", "bedroom"} and len(lights) >= 3
+    spec = derive(d)                                                    # lights over a sofa are fine: derive does not count them as in the way
+    fixture = next(f for f in spec.furniture if f.kind == "ceiling_light")
+    assert fixture.z0 == pytest.approx(3.0 - 0.12, abs=0.01) and all(b.z0 >= 2.8 for b in fixture.boxes)
+    model, _ = compile_ifc(spec)
+    assert len(model.by_type("IfcLightFixture")) >= len(lights) and not any("light" in p.Tag for p in model.by_type("IfcFurniture"))
+
+
+def test_a_big_room_gets_more_than_one_light_and_they_keep_apart():
+    room = __import__("app.domain.design", fromlist=["Room"]).Room(id="hall", name="Hall", level="L1", kind="living", rect=(0, 0, 8, 6))
+    counter: dict[str, int] = {}
+
+    def nid(k, counter=counter):
+        counter[k] = counter.get(k, 0) + 1
+        return f"furn.hall.{k}.{counter[k]}"
+    out = [f for f in layout_room(room, [], [], nid) if f.kind == "ceiling_light"]
+    assert len(out) >= 3
+    assert all(furniture_polygon(a).intersection(furniture_polygon(b)).area < 1e-4 for i, a in enumerate(out) for b in out[i + 1:])
+
+
+def test_a_piece_can_go_in_a_corner_stand_off_the_wall_or_be_turned():
+    d = house({"step": "furniture", "room": "Living", "kind": "armchair", "side": "NE", "id": "chair"})
+    c = d.furniture[0]
+    assert c.rot == 180 and c.x > 4.0 and c.y > 4.0                    # north wall, pushed to the east
+    d = house({"step": "furniture", "room": "Living", "kind": "bed_double", "side": "N", "gap": 0.3, "id": "bed"})
+    edge = house({"step": "furniture", "room": "Living", "kind": "bed_double", "side": "N", "id": "bed"}).furniture[0]
+    assert d.furniture[0].y == pytest.approx(edge.y - 0.3, abs=0.001)
+    d = house({"step": "furniture", "room": "Living", "kind": "sofa", "side": "W", "rotation": 180, "id": "turned"})
+    assert d.furniture[0].rot == 180 and derive(d)                         # turned, and slid back inside the room
+
+
+def test_a_plant_and_a_lamp_are_in_the_catalogue_and_the_quantities():
+    d = house({"step": "furniture", "room": "Living", "kind": "plant", "side": "NW"}, {"step": "furniture", "room": "Living", "kind": "lamp", "side": "SE"})
+    assert {f.kind for f in d.furniture} == {"plant", "floor_lamp"}
+    rows = {(r["group"], r["item"]) for r in quantities(derive(d))["rows"]}
+    assert ("Furniture", "Plant") in rows and ("Furniture", "Floor lamp") in rows

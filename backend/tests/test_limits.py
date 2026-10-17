@@ -126,6 +126,12 @@ def test_nothing_met_of_several_checkable_things_is_refused():
     assert any("none of the 2" in p for p in out)
 
 
+def test_named_furniture_missing_does_not_make_a_building_unusable():
+    d = build(STOREY, room("Studio", "living", [0, 0, 6, 5]))
+    wants = [result("furniture", "unmet", keyword="sofa", count=1), result("furniture", "unmet", keyword="bed_double", count=1), result("furniture", "unmet", keyword="fridge", count=1)]
+    assert gate.problems(d, wants, None) == []
+
+
 def test_a_one_room_answer_to_a_many_room_request_is_refused():
     d = build(STOREY, room("Studio", "other", [0, 0, 3, 3]))
     out = gate.problems(d, [result("room", "unmet", keyword="bedroom", count=3), result("room", "met", keyword="other")], None)

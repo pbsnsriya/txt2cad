@@ -10,7 +10,7 @@ from shapely.ops import unary_union
 
 from .design import Design
 
-UNSUPPORTED_FEATURES = {"porch", "balcony", "basement", "pool", "garden", "furniture"}
+UNSUPPORTED_FEATURES = {"porch", "balcony", "basement", "pool", "garden", "terrace", "veranda", "cellar"}
 ALWAYS_BUILDABLE = {"storeys", "room", "window", "door"}
 WHOLE_BUILDING_WORDS = {"studio", "flat", "apartment", "house", "home", "bungalow", "cabin", "villa", "cottage", "townhouse", "building"}
 FURNITURE_WORDS = {"furniture", "furnished", "furnishing", "interior", "interiors", "furnish"}
@@ -36,7 +36,7 @@ def normalise(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 _ALIASES = {"hallway": "hall", "corridor": "hall", "entrance": "hall", "lounge": "living", "study": "office", "workspace": "office", "wc": "bathroom",
-            "toilet": "bathroom", "ensuite": "bathroom", "kitchenette": "kitchen", "patio": "courtyard"}
+            "toilet": "bathroom", "ensuite": "bathroom", "kitchenette": "kitchen", "patio": "courtyard", "shop": "retail", "sale": "retail", "sales": "retail", "showroom": "retail"}
 _GENERIC = {"room", "area", "space", "the", "a", "an"}
 
 
@@ -196,6 +196,16 @@ def _check_furniture(design: Design) -> tuple[str, str]:
                      "send one furnish step with room \"all\"")
 
 
+def _check_wanted_furniture(design: Design, p: dict[str, Any]) -> tuple[str, str]:
+    want, kw = int(p.get("count", 1)), str(p["keyword"])
+    kinds = {"bed_double", "bed_single"} if kw == "bed" else {kw}
+    have = sum(1 for f in design.furniture if f.kind in kinds)
+    if have >= want:
+        return "met", f"{have} placed"
+    return "unmet", (f"wanted {want}, the design has {have}; add {'one' if want - have == 1 else str(want - have)} with a furniture step (kind "
+                     f"{'bed_double or bed_single' if kw == 'bed' else kw}) in a fitting room, or send a furnish step for \"all\" first")
+
+
 def _check_dimension(design: Design, p: dict[str, Any]) -> tuple[str, str]:
     want = (float(p["width"]), float(p["depth"]))
     asked = f"asked {want[0]:.1f} x {want[1]:.1f} m"
@@ -250,6 +260,8 @@ def check(design: Design, requirements: list[dict[str, Any]]) -> list[dict[str, 
             r["status"], r["detail"] = _check_shape(design, str(p["keyword"]), r.get("text", ""))
         elif r["kind"] == "feature" and str(p.get("keyword", "")).lower() in ROOF_WORDS:
             r["status"], r["detail"] = _check_roof(design, r)
+        elif r["kind"] == "furniture" and "keyword" in p:
+            r["status"], r["detail"] = _check_wanted_furniture(design, p)
         elif r["kind"] == "dimension" and {"keyword", "width", "depth"} <= p.keys():
             r["status"], r["detail"] = _check_dimension(design, p)
         elif r["kind"] == "area" and {"keyword", "area"} <= p.keys():

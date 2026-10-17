@@ -27,7 +27,8 @@ PAINTS: dict[str, str] = {
 COLOURS: dict[str, str] = {**PAINTS, **{k: v for k, v in FLOORS.items() if k not in PAINTS}, "oak": "#b89464", "wood": "#a9794a", "fabric": "#7d8590", "steel": "#b9bcc0"}
 
 # colour keys used inside a shape; "main" is the colour of the piece (the catalogue default, or the one a request chose)
-PART_COLOURS = {"wood": "#a9794a", "white": "#f1f1ee", "dark": "#3a3d42", "steel": "#b9bcc0", "fabric": "#7d8590", "cushion": "#d9d6cf", "water": "#a9cfe6"}
+PART_COLOURS = {"wood": "#a9794a", "white": "#f1f1ee", "dark": "#3a3d42", "steel": "#b9bcc0", "fabric": "#7d8590", "cushion": "#d9d6cf", "water": "#a9cfe6",
+                "lamp": "#ffefb0", "leaf": "#4d7c4a", "pot": "#b4673f"}
 
 
 class UnknownName(ValueError):
@@ -58,10 +59,11 @@ class Item:
     colour: str                    # the main colour (a COLOURS key or a PART_COLOURS key)
     ifc: str = "NOTDEFINED"        # IfcFurnitureTypeEnum value
     resizable_w: bool = False      # runs of kitchen units come in any length
+    mount: str = "floor"           # "ceiling" pieces hang from the ceiling and may be over other furniture
 
 
-def _item(kind, label, w, d, h, colour, ifc="NOTDEFINED", resizable_w=False) -> Item:
-    return Item(kind, label, w, d, h, colour, ifc, resizable_w)
+def _item(kind, label, w, d, h, colour, ifc="NOTDEFINED", resizable_w=False, mount="floor") -> Item:
+    return Item(kind, label, w, d, h, colour, ifc, resizable_w, mount)
 
 
 CATALOGUE: dict[str, Item] = {i.kind: i for i in (
@@ -76,11 +78,14 @@ CATALOGUE: dict[str, Item] = {i.kind: i for i in (
     _item("bench", "Bench", 1.2, 0.4, 0.45, "wood", "NOTDEFINED", True),
     _item("kitchen_counter", "Kitchen units", 1.2, 0.6, 0.9, "white", "NOTDEFINED", True), _item("kitchen_island", "Kitchen island", 1.8, 0.9, 0.9, "white"),
     _item("sink_unit", "Sink unit", 0.8, 0.6, 0.9, "white"), _item("cooker", "Cooker", 0.6, 0.6, 0.9, "steel"), _item("fridge", "Fridge", 0.7, 0.7, 1.8, "steel"),
+    _item("ceiling_light", "Ceiling light", 0.45, 0.45, 0.12, "lamp", mount="ceiling"), _item("floor_lamp", "Floor lamp", 0.35, 0.35, 1.6, "lamp"),
+    _item("plant", "Plant", 0.45, 0.45, 1.1, "leaf"),
     _item("toilet", "Toilet", 0.4, 0.7, 0.8, "white"), _item("basin", "Basin", 0.6, 0.45, 0.85, "white"), _item("bath", "Bath", 1.7, 0.75, 0.55, "white"),
     _item("shower", "Shower", 0.9, 0.9, 2.0, "water"), _item("washing_machine", "Washing machine", 0.6, 0.6, 0.85, "white"),
 )}
 
-KIND_WORDS = {"bed": "bed_double", "double bed": "bed_double", "single bed": "bed_single", "couch": "sofa", "table": "dining_table", "wc": "toilet",
+LIGHT_KINDS = {"ceiling_light", "floor_lamp"}
+KIND_WORDS = {"light": "ceiling_light", "lamp": "floor_lamp", "pendant": "ceiling_light", "ceiling lamp": "ceiling_light", "standard lamp": "floor_lamp", "houseplant": "plant", "bed": "bed_double", "double bed": "bed_double", "single bed": "bed_single", "couch": "sofa", "table": "dining_table", "wc": "toilet",
               "sink": "sink_unit", "kitchen": "kitchen_counter", "counter": "kitchen_counter", "units": "kitchen_counter", "shelf": "bookshelf",
               "bookcase": "bookshelf", "tv": "tv_unit", "television": "tv_unit", "stove": "cooker", "oven": "cooker", "fridge freezer": "fridge",
               "refrigerator": "fridge", "cupboard": "wardrobe", "closet": "wardrobe", "nightstand": "bedside_table", "bedside": "bedside_table",
@@ -147,6 +152,12 @@ def parts(kind: str, w: float, d: float, h: float) -> list[Box]:
                 for sy in (-1, 1):
                     out.append((sx * hw * 0.5 - 0.09, sy * hd * 0.4 - 0.09, sx * hw * 0.5 + 0.09, sy * hd * 0.4 + 0.09, h, h + 0.02, "dark"))
         return out
+    if kind == "ceiling_light":
+        return [(-hw, -hd, hw, hd, 0.0, 0.03, "white"), (-hw * 0.8, -hd * 0.8, hw * 0.8, hd * 0.8, 0.03, h, "main")]
+    if kind == "floor_lamp":
+        return [(-hw * 0.7, -hd * 0.7, hw * 0.7, hd * 0.7, 0.0, 0.03, "dark"), (-0.02, -0.02, 0.02, 0.02, 0.03, 1.25, "dark"), (-hw, -hd, hw, hd, 1.25, h, "main")]
+    if kind == "plant":
+        return [(-hw * 0.7, -hd * 0.7, hw * 0.7, hd * 0.7, 0.0, 0.35, "pot"), (-hw, -hd, hw, hd, 0.35, h, "main")]
     if kind == "toilet":
         return [(-hw, back, hw, back + 0.22, 0.0, h, "main"), (-hw + 0.02, back + 0.22, hw - 0.02, hd, 0.0, 0.42, "main")]
     if kind == "basin":

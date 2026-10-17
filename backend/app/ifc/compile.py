@@ -234,7 +234,7 @@ def compile_ifc(spec: BuildingSpec, design_json: str = "", guids: dict[str, str]
         ifcopenshell.api.feature.add_filling(m, opening=cut, element=fill)
 
     for fu in spec.furniture:
-        piece = b.create("IfcFurniture", fu.label or fu.id, f"element:{fu.id}", b.boxes_shape(body, fu.boxes))
+        piece = b.create("IfcLightFixture" if fu.kind in ("ceiling_light", "floor_lamp") else "IfcFurniture", fu.label or fu.id, f"element:{fu.id}", b.boxes_shape(body, fu.boxes))
         ifcopenshell.api.spatial.assign_container(m, products=[piece], relating_structure=storeys[fu.level])
         ifcopenshell.api.pset.edit_pset(m, pset=ifcopenshell.api.pset.add_pset(m, product=piece, name="Txt2Cad_Furniture"),
                                         properties={"Kind": fu.kind, "Room": fu.room, "HeightM": fu.height})

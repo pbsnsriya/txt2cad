@@ -14,6 +14,11 @@ from shapely import affinity
 from shapely.geometry import Polygon, box
 
 from .catalogue import CATALOGUE, Item
+
+
+def is_ceiling(kind: str) -> bool:
+    item = CATALOGUE.get(kind)
+    return item is not None and item.mount == "ceiling"
 from .design import Furniture, Room
 from .geom import box_on_wall, wall_outline
 from .spec import BuildingSpec
@@ -43,8 +48,16 @@ def furniture_polygon(f: Furniture) -> Polygon:
     return footprint(f.x, f.y, f.w, f.d, f.rot)
 
 
-def against(room: Room, w: float, d: float, side: str, at: float) -> tuple[float, float, int]:
-    """Centre and rotation of a w x d piece with its back to `side`, `at` (0 to 1) of the way along that wall."""
+CORNERS = {"NE": ("N", 1.0), "NW": ("N", 0.0), "SE": ("S", 1.0), "SW": ("S", 0.0), "EN": ("E", 1.0), "ES": ("E", 0.0), "WN": ("W", 1.0), "WS": ("W", 0.0)}
+
+
+def corner(side: str) -> tuple[str, float] | None:
+    """'NE' means in the north-east corner: its back to the north wall and pushed up against the east wall."""
+    return CORNERS.get(side.strip().upper()[:2]) if len(side.strip()) == 2 else None
+
+
+def against(room: Room, w: float, d: float, side: str, at: float, gap: float = 0.0) -> tuple[float, float, int]:
+    """Centre and rotation of a w x d piece with its back to `side`, `at` (0 to 1) of the way along that wall, `gap` metres out from the wall."""
     x0, y0, x1, y1 = inner(room)
     at = min(max(at, 0.0), 1.0)
     if side in ("S", "N"):
@@ -52,13 +65,13 @@ def against(room: Room, w: float, d: float, side: str, at: float) -> tuple[float
         if hi < lo - EPS:
             raise DoesNotFit(f"a piece {w:g} m wide does not fit along the {side} wall of '{room.name}' (inside it is {x1 - x0:.2f} m)")
         cx = lo + at * (hi - lo)
-        cy = y0 + d / 2 if side == "S" else y1 - d / 2
+        cy = y0 + d / 2 + gap if side == "S" else y1 - d / 2 - gap
     else:
         lo, hi = y0 + w / 2, y1 - w / 2
         if hi < lo - EPS:
             raise DoesNotFit(f"a piece {w:g} m wide does not fit along the {side} wall of '{room.name}' (inside it is {y1 - y0:.2f} m)")
         cy = lo + at * (hi - lo)
-        cx = x0 + d / 2 if side == "W" else x1 - d / 2
+        cx = x0 + d / 2 + gap if side == "W" else x1 - d / 2 - gap
     return round(cx, 3), round(cy, 3), BACK_ROT[side]
 
 
@@ -87,6 +100,10 @@ class Ctx:
     keep_out: list[Polygon]                     # door swings and stairs
     placed: list[Furniture]
     next_id: Callable[[str], str]               # kind -> unique id
+    hanging: list[tuple[str, Polygon]] = None   # type: ignore[assignment]   # ceiling pieces already in the room
+
+    def __post_init__(self) -> None:
+        self.hanging = self.hanging or []
 
     def sides_by_length(self) -> list[str]:
         x0, y0, x1, y1 = inner(self.room)
@@ -110,8 +127,21 @@ class Ctx:
     def add(self, kind: str, cx: float, cy: float, rot: int, w: float, d: float, h: float) -> Furniture:
         f = Furniture(id=self.next_id(kind), room=self.room.id, kind=kind, x=cx, y=cy, w=w, d=d, h=h, rot=rot)  # type: ignore[arg-type]
         self.placed.append(f)
-        self.taken.append((f.id, furniture_polygon(f)))
+        (self.hanging if is_ceiling(kind) else self.taken).append((f.id, furniture_polygon(f)))
         return f
+
+    def lights(self) -> None:
+        """Ceiling lights on an even grid, about one for every 14 m2: they hang over everything and only keep clear of each other."""
+        x0, y0, x1, y1 = inner(self.room)
+        n = min(4, max(1, round(((x1 - x0) * (y1 - y0)) / 14.0)))
+        item = CATALOGUE["ceiling_light"]
+        along_x = (x1 - x0) >= (y1 - y0)
+        for i in range(n):
+            frac = (i + 0.5) / n
+            cx, cy = (x0 + frac * (x1 - x0), (y0 + y1) / 2) if along_x else ((x0 + x1) / 2, y0 + frac * (y1 - y0))
+            poly = footprint(round(cx, 3), round(cy, 3), item.w, item.d, 0)
+            if not any(poly.intersection(p).area > 1e-4 for _, p in self.hanging):
+                self.add("ceiling_light", round(cx, 3), round(cy, 3), 0, item.w, item.d, item.h)
 
     def place(self, kind: str, sides: list[str], ats: tuple[float, ...] = (0.5, 0.15, 0.85, 0.3, 0.7, 0.0, 1.0), w: float | None = None, front_m: float = 0.0,
               skip: set[str] | None = None) -> Furniture | None:
@@ -210,7 +240,8 @@ def layout_room(room: Room, existing: list[Furniture], keep_out: list[Polygon], 
     x0, y0, x1, y1 = inner(room)
     area = (x1 - x0) * (y1 - y0)
     have = {f.kind for f in existing}
-    ctx = Ctx(room, [(f.id, furniture_polygon(f)) for f in existing], keep_out, [], next_id)
+    ctx = Ctx(room, [(f.id, furniture_polygon(f)) for f in existing if not is_ceiling(f.kind)], keep_out, [], next_id,
+              [(f.id, furniture_polygon(f)) for f in existing if is_ceiling(f.kind)])
     sides = ctx.sides_by_length()
     kind = room.kind
 
@@ -273,6 +304,13 @@ def layout_room(room: Room, existing: list[Furniture], keep_out: list[Polygon], 
     elif kind == "utility":
         if want("washing_machine"):
             ctx.place("washing_machine", sides, front_m=0.6)
+    if kind == "living":
+        if want("floor_lamp"):
+            ctx.place("floor_lamp", sides, ats=(1.0, 0.0), front_m=0.0)
+        if want("plant") and area >= 16:
+            ctx.place("plant", sides[::-1], ats=(0.0, 1.0))
+    if kind in ("bedroom", "living", "kitchen", "dining", "bathroom", "office", "hall", "utility") and want("ceiling_light"):
+        ctx.lights()
     return ctx.placed
 
 

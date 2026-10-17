@@ -82,3 +82,8 @@ def test_a_u_shaped_footprint():
 def test_shape_words_are_buildable_not_unsupported():
     for kw in ("courtyard", "l-shaped", "u-shaped"):
         assert checks.normalise({"kind": "feature", "keyword": kw, "text": "x", "supported": False})["supported"] is True
+
+
+def test_a_shop_floor_is_a_retail_space():
+    d = build(STOREY, room("Sales Floor", "other", [0, 0, 6, 5]))
+    assert one(d, kind="room", keyword="retail", count=1, text="x")["status"] == "met"

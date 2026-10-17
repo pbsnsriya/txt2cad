@@ -17,7 +17,7 @@ _step_props: dict[str, Any] = {
         "name": {"type": "string"}, "kind": {"type": "string"}, "rect": {"type": "array", "items": {"type": "number"}}, "roofed": {"type": "boolean"}},
         "required": ["name", "rect"]}},
     "roofed": {"type": "boolean"}, "room": {"type": "string"}, "to": {"type": "string"}, "side": {"type": "string"},
-    "to_level": {"type": "string"}, "at": {"type": "number"}, "across": {"type": "number"}, "depth": {"type": "number"}, "rotation": {"type": "integer"},
+    "to_level": {"type": "string"}, "at": {"type": "number"}, "across": {"type": "number"}, "gap": {"type": "number"}, "depth": {"type": "number"}, "rotation": {"type": "integer"},
     "colour": {"type": "string"}, "floor": {"type": "string"}, "walls": {"type": "string"          }, "width": {"type": "number"}, "sill": {"type": "number"}, "material": {"type": "string"}, "text": {"type": "string"},
 }
 

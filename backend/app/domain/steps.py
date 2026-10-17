@@ -15,7 +15,7 @@ from shapely.geometry import box
 from .catalogue import FLOORS, PAINTS, UnknownName, item_for, resolve
 from .derive import DesignError, derive
 from .design import Design, Door, Furniture, Level, Room, Stair, Window, MAX_LEVELS
-from .furnish import DoesNotFit, against, centred, check_fit, footprint, furniture_polygon, keep_outs, layout_room
+from .furnish import DoesNotFit, against, centred, check_fit, corner, footprint, furniture_polygon, inner, is_ceiling, keep_outs, layout_room
 from .roofs import MAX_PITCH, MIN_PITCH, roof_kind
 
 MAX_DOOR_WIDTH_M = 2.0
@@ -53,6 +53,7 @@ class Step(BaseModel):
     pitch: float | None = None
     depth: float | None = None
     across: float | None = None
+    gap: float | None = None
     rotation: int | None = None
     colour: str | None = None
     color: str | None = None
@@ -102,6 +103,20 @@ def norm_rect(value: Any) -> tuple[float, float, float, float] | None:
     return (x, y, w, d)
 
 
+_LEVEL_CODE = re.compile(r"\(?\b(?:L\d+|level\s*\d+)\b\)?", re.IGNORECASE)
+
+
+def tidy_name(raw: str | None, kind: str = "other") -> str:
+    """A room's name the way a person says it: 'bedroom-2' is 'Bedroom 2', 'L1 hall' is 'Hall', 'living room' is 'Living Room'."""
+    text = (raw or "").replace("_", " ")
+    text = re.sub(r"(?<=[A-Za-z])-(?=[A-Za-z0-9])", " ", text)
+    text = _LEVEL_CODE.sub(" ", text)
+    text = re.sub(r"\s+", " ", text).strip(" -/()")
+    if not text:
+        text = (kind or "room").replace("_", " ")
+    return re.sub(r"[A-Za-z][a-z']*", lambda m: m.group(0).capitalize() if m.group(0).islower() else m.group(0), text)
+
+
 def _unique_id(existing: set[str], base: str) -> str:
     candidate, n = base, 2
     while candidate in existing:
@@ -127,6 +142,7 @@ def _key(text: str) -> str:
 
 
 _LEVEL_SUFFIX = re.compile(r"[\s(]+(L\d+|level\s*\d+)\)?\s*$", re.IGNORECASE)
+_LEVEL_PREFIX = re.compile(r"^\s*\(?(L\d+|level\s*\d+)\)?[\s:,-]+", re.IGNORECASE)
 
 
 def _room_ref(design: Design, ref: str | None, what: str, prefer_level: str | None = None) -> Room:
@@ -140,8 +156,11 @@ def _room_ref(design: Design, ref: str | None, what: str, prefer_level: str | No
         level = None
         base = ref
         m = _LEVEL_SUFFIX.search(ref)
+        pre = _LEVEL_PREFIX.match(ref)
         if m:
             level, base = norm_level(re.sub(r"(?i)level\s*", "", m.group(1))), ref[:m.start()]
+        elif pre:
+            level, base = norm_level(re.sub(r"(?i)level\s*", "", pre.group(1))), ref[pre.end():]
         k = _key(base)
         no_digits = re.sub(r"\d+$", "", k)
         variants = {k, k.removesuffix("room"), no_digits, no_digits.removesuffix("room")} - {""}
@@ -297,6 +316,7 @@ def _apply_room(d: Design, step: Step, keep: dict[str, Room] | None = None) -> N
         name = base if base.lower() not in taken else next(f"{base} {n}" for n in range(2, 99) if f"{base} {n}".lower() not in taken)
     if not name:
         raise StepError("room: 'name' (or at least 'kind') is required")
+    name = tidy_name(name, step.kind or "other")
     rect = norm_rect(step.rect)
     existing = next((r for r in d.rooms if r.id == step.id or (r.level == lid and r.name.lower() == name.lower())), None)
     if existing is None and keep:
@@ -339,7 +359,7 @@ def _apply_furniture(d: Design, step: Step) -> None:
     moving = any(v is not None for v in (step.side, step.at, step.across, step.rotation))
     side = (step.side or "center").strip().lower()
     try:
-        if existing is not None and not moving:
+        if existing is not None and not moving and not is_ceiling(item.kind):
             fx, fy = {0: (0.0, -1.0), 90: (1.0, 0.0), 180: (0.0, 1.0), 270: (-1.0, 0.0)}[existing.rot]       # the way its back faces
             back = (existing.x + fx * existing.d / 2, existing.y + fy * existing.d / 2)                      # keep the back where it was against the wall
             cx, cy, rot = round(back[0] - fx * depth / 2, 3), round(back[1] - fy * depth / 2, 3), existing.rot
@@ -348,12 +368,23 @@ def _apply_furniture(d: Design, step: Step) -> None:
             rot = (step.rotation or 0) % 360
             if rot not in (0, 90, 180, 270):
                 raise StepError("furniture: rotation is 0, 90, 180 or 270 degrees")
+        elif corner(side):
+            wall, at_end = corner(side)  # type: ignore[misc]
+            cx, cy, rot = against(room, w, depth, wall, at_end, step.gap or 0.0)
         else:
-            cx, cy, rot = against(room, w, depth, norm_side(side) or "S", step.at if step.at is not None else 0.5)
+            cx, cy, rot = against(room, w, depth, norm_side(side) or "S", step.at if step.at is not None else 0.5, step.gap or 0.0)
+            if step.rotation is not None:
+                rot = step.rotation % 360
+                if rot not in (0, 90, 180, 270):
+                    raise StepError("furniture: rotation is 0, 90, 180 or 270 degrees")
+                x0, y0, x1, y1 = inner(room)               # turned, it may reach past the wall it stands on: slide it back inside
+                minx, miny, maxx, maxy = footprint(cx, cy, w, depth, rot).bounds
+                cx = round(cx + max(x0 - minx, 0.0) - max(maxx - x1, 0.0), 3)
+                cy = round(cy + max(y0 - miny, 0.0) - max(maxy - y1, 0.0), 3)
     except DoesNotFit as exc:
         raise StepError(f"furniture: {exc}") from exc
     fid = step.id if isinstance(step.id, str) and step.id else _unique_id({f.id for f in d.furniture}, f"furn.{room.id}.{item.kind}")
-    others = [(f.id, furniture_polygon(f)) for f in d.furniture if f.room == room.id and f.id != fid]
+    others = [(f.id, furniture_polygon(f)) for f in d.furniture if f.room == room.id and f.id != fid and is_ceiling(f.kind) == is_ceiling(item.kind)]
     try:
         check_fit(room, footprint(cx, cy, w, depth, rot), f"{item.label} '{fid}'", others)
     except DoesNotFit as exc:

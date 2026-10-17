@@ -148,3 +148,33 @@ def test_merge_replaces_the_models_unmeasurable_size_items():
 def test_normalise_keeps_the_numbers():
     r = checks.normalise({"kind": "dimension", "text": "x", "keyword": "kitchen", "width": 4, "depth": 3})
     assert r["params"] == {"keyword": "kitchen", "width": 4, "depth": 3}
+
+
+def test_a_total_given_after_other_room_words_is_still_the_whole_building():
+    r = only("A small studio, one main room plus a bathroom, 25 square metres in all.")
+    assert r["kind"] == "area" and r["params"] == {"keyword": "building", "area": 25.0}
+
+
+# --- pieces named in the request ---------------------------------------------------------------------------------------------------------------------
+from app.domain.sizes import extract_furniture  # noqa: E402
+
+
+def test_pieces_named_in_the_request_become_requirements_with_counts():
+    got = extract_furniture("A studio with a sofa, a double bed and two armchairs and a kitchen counter.")
+    assert [(g["params"]["keyword"], g["params"]["count"]) for g in got] == [("sofa", 1), ("bed_double", 1), ("armchair", 2), ("kitchen_counter", 1)]
+    assert got[0]["text"] == "There is a sofa" and got[2]["text"] == "There are 2 armchairs"
+
+
+def test_rooms_and_bathroom_fixtures_are_not_taken_for_furniture():
+    assert extract_furniture("A house with three bedrooms, a bathroom, a kitchen and two toilets in the office.") == []
+    assert extract_furniture("Plain house") == []
+    assert [g["params"]["keyword"] for g in extract_furniture("a bed and a desk")] == ["bed", "desk"]
+
+
+def test_wanted_furniture_is_checked_against_the_design():
+    d = build(storey(), room("Living", "living", (0, 0, 5, 5)), {"step": "furniture", "room": "Living", "kind": "sofa", "side": "S"})
+    want = extract_furniture("a sofa and two armchairs and a bed")
+    by = {r["params"]["keyword"]: r for r in checks.check(d, want)}
+    assert by["sofa"]["status"] == "met" and by["armchair"]["status"] == "unmet" and "furniture step" in by["armchair"]["detail"] and by["bed"]["status"] == "unmet"
+    d2 = apply_step(d, Step(step="furniture", room="Living", kind="bed_single", side="N"))
+    assert {r["params"]["keyword"]: r["status"] for r in checks.check(d2, want)}["bed"] == "met"          # any bed will do for "a bed"

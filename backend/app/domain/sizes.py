@@ -51,7 +51,12 @@ def _subjects(text: str) -> list[tuple[int, int, str, str]]:
     return out
 
 
+_TOTAL_AFTER = re.compile(r"\s*(?:in all|in total|altogether|overall|in size|in area)\b", re.IGNORECASE)
+
+
 def _subject_for(text: str, start: int, end: int) -> tuple[str, str] | None:
+    if _TOTAL_AFTER.match(text, end):
+        return "building", "building"
     subs = _subjects(text)
     # before: the closest subject ending before the number, with at most three plain words between and no sentence break
     before = None
@@ -120,3 +125,40 @@ def extract(prompt: str) -> list[dict[str, Any]]:
         text = (f"The total floor area is about {shown} m2" if keyword == "building" else f"The {label} is about {shown} m2")
         found.append((m.start(), {"kind": "area", "text": text, "supported": True, "params": {"keyword": keyword, "area": area}}))
     return [item for _, item in sorted(found, key=lambda t: t[0])]
+
+
+# --- things asked for by name: "a sofa, a double bed and a kitchen counter" -----------------------------------------------------------------------
+_COUNTS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6}
+FURNITURE_PHRASES: list[tuple[str, str, str]] = [
+    (r"double beds?|(?:king|queen)[- ]?size(?:d)? beds?", "bed_double", "double bed"), (r"single beds?", "bed_single", "single bed"), (r"beds?", "bed", "bed"),
+    (r"sofas?|couch(?:es)?", "sofa", "sofa"), (r"armchairs?", "armchair", "armchair"), (r"coffee tables?", "coffee_table", "coffee table"),
+    (r"dining tables?", "dining_table", "dining table"), (r"wardrobes?", "wardrobe", "wardrobe"), (r"desks?", "desk", "desk"),
+    (r"book\s?(?:shelf|shelves|cases?)", "bookshelf", "bookshelf"), (r"tv units?|televisions?", "tv_unit", "TV unit"),
+    (r"kitchen (?:counters?|units?|worktops?)", "kitchen_counter", "kitchen counter"), (r"kitchen islands?", "kitchen_island", "kitchen island"),
+    (r"fridges?|refrigerators?", "fridge", "fridge"), (r"cookers?|ovens?|hobs?", "cooker", "cooker"), (r"washing machines?", "washing_machine", "washing machine"),
+    (r"plants?", "plant", "plant"), (r"floor lamps?|standard lamps?", "floor_lamp", "floor lamp"), (r"benches|bench", "bench", "bench"),
+    (r"chests? of drawers", "dresser", "chest of drawers"),
+]
+
+
+def extract_furniture(prompt: str) -> list[dict[str, Any]]:
+    """Pieces named in the request, as requirements: 'a sofa, a double bed' becomes two items the design is checked for. Bathroom fixtures are left out:
+    'two toilets' in an office request means rooms."""
+    taken: list[tuple[int, int]] = []
+    found: dict[str, dict[str, Any]] = {}
+    for pattern, kind, label in FURNITURE_PHRASES:                      # longer phrases first, so "double bed" is not also a "bed"
+        for m in re.finditer(rf"(?:\b(a|an|one|two|three|four|five|six|\d+)\s+(?:\w+\s+)?)?\b(?:{pattern})\b", prompt, re.IGNORECASE):
+            span = (m.start(), m.end())
+            if any(a <= span[0] < b or a < span[1] <= b for a, b in taken):
+                continue
+            taken.append(span)
+            n = _COUNTS.get((m.group(1) or "a").lower(), 1)
+            item = found.setdefault(kind, {"kind": "furniture", "text": "", "supported": True, "params": {"keyword": kind, "count": 0}, "_label": label, "_at": m.start()})
+            item["params"]["count"] += n
+    out = []
+    for item in sorted(found.values(), key=lambda i: i["_at"]):
+        n, label = item["params"]["count"], item.pop("_label")
+        item.pop("_at")
+        item["text"] = f"There {'is a' if n == 1 else f'are {n}'} {label}{'' if n == 1 else 's'}"
+        out.append(item)
+    return out

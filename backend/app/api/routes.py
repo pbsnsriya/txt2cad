@@ -18,6 +18,7 @@ from .. import config
 from ..db import repo
 from ..analysis.quantities import quantities
 from ..analysis.review import review
+from ..domain import envelope
 from ..domain.design import Design
 from ..domain.spec import BuildingSpec
 from ..domain.suggest import suggest
@@ -48,6 +49,12 @@ def make_llm(profile: dict[str, Any]) -> LLM:
 def health() -> dict[str, Any]:
     default = repo.get_profile(OWNER, None)
     return {"ok": True, "llm": {"profile": default["name"], "provider": default["provider"], "model": default["model"]}}
+
+
+@router.get("/capabilities")
+def capabilities() -> dict[str, Any]:
+    """What the tool builds and what it does not: one list for the Home screen, the composer's early warning and the docs."""
+    return envelope.payload()
 
 
 # --- LLM profiles -----------------------------------------------------------------------------------------------------

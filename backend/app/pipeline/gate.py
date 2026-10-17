@@ -24,7 +24,7 @@ def problems(design: Design, results: list[dict[str, Any]], started_with: int | 
             out.append(f"the change would have removed {started_with - rooms} of the {started_with} rooms")
         return out
 
-    checkable = [r for r in results if r["status"] in ("met", "unmet")]
+    checkable = [r for r in results if r["status"] in ("met", "unmet") and r["kind"] != "furniture"]      # pieces are a finish, not proof the building failed
     if len(checkable) >= 2 and not any(r["status"] == "met" for r in checkable):
         out.append(f"none of the {len(checkable)} things you asked for that can be checked were built")
     wanted = sum(int(r.get("params", {}).get("count", 1) or 1) for r in results if r["kind"] == "room" and r.get("supported", True))
