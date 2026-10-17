@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { API, build, CABIN, composer, expect, projects, resetProjects, test } from './helpers';
 
 test.beforeEach(({ request }) => resetProjects(request));
@@ -84,6 +85,7 @@ test('F15-H1 a furnished house with finishes shows the Interiors phase, furnitur
   await expect(page.getByText('The rooms are furnished').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Quantities' }).click();
   await expect(page.getByText('Sofa', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ceiling light', { exact: true })).toBeVisible();
   await expect(page.getByText('Floor finish: oak')).toBeVisible();
   await expect(page.getByText('Wall finish: cream')).toBeVisible();
   await page.getByRole('tab', { name: '3D view' }).click();
@@ -95,4 +97,47 @@ test('F15-H2 an unfurnished house is offered furniture and a floor', async ({ pa
   const chips = page.getByTestId('suggestions');
   await expect(chips).toContainText('Furnish every room.');
   await expect(chips).toContainText('oak floor');
+});
+
+test('F17-H1 Home says what is built and what is not, and warns while typing about something that is not', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('What it builds today').click();
+  const box = page.getByTestId('capabilities');
+  await expect(box.getByRole('region', { name: 'Not built yet' })).toContainText('Basements and cellars');
+  await expect(box.getByRole('region', { name: 'Builds today' })).toContainText('Flat, gable, hip and shed roofs');
+  await composer(page).fill('A house with a basement and a swimming pool.');
+  await expect(page.getByTestId('unsupported-note')).toContainText('a basement, a pool');
+  await composer(page).fill('A house with a kitchen.');
+  await expect(page.getByTestId('unsupported-note')).toHaveCount(0);
+});
+
+test('F18-H1 feedback shows exactly what it would say, leaves your request out until you tick the box, and sends nothing itself', async ({ page }) => {
+  const outside: string[] = [];
+  page.on('request', (r) => { try { const h = new URL(r.url()).hostname; if (!['127.0.0.1', 'localhost'].includes(h)) outside.push(h); } catch { /* data urls */ } });
+  await build(page, 'A one storey house with a kitchen, a living room and two bedrooms.');
+  await page.getByRole('button', { name: 'Feedback' }).click();
+  await page.getByRole('radio', { name: '4 of 5' }).click();
+  await page.getByLabel('What happened?').fill('The kitchen was too small.');
+  const preview = page.getByTestId('feedback-preview');
+  await expect(preview).toContainText('4 of 5');
+  await expect(preview).toContainText('The kitchen was too small.');
+  await expect(preview).not.toContainText('A one storey house');
+  await page.getByLabel('Include my last request and what was built').click();
+  await expect(preview).toContainText('A one storey house with a kitchen');
+  const link = page.getByTestId('feedback-link');
+  await expect(link).toHaveAttribute('target', '_blank');
+  expect(decodeURIComponent((await link.getAttribute('href'))!)).toContain('A one storey house with a kitchen');
+  expect(outside).toEqual([]);                                         // nothing left the computer; opening the link is the person's choice
+});
+
+test('F19-H1 Save picture downloads the 3D view as a real PNG named after the project and version', async ({ page }, info) => {
+  await build(page, CABIN);
+  await page.waitForTimeout(1500);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save picture' }).click()]);
+  expect(dl.suggestedFilename()).toMatch(/-v1\.png$/);
+  const file = info.outputPath(dl.suggestedFilename());
+  await dl.saveAs(file);
+  const bytes = fs.readFileSync(file);
+  expect([...bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  expect(bytes.length).toBeGreaterThan(8000);
 });

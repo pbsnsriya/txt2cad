@@ -3,6 +3,7 @@ import { ArrowUp, Plus, Square, ChevronDown } from 'lucide-react';
 import { cn, focusRing } from './cn';
 import { IconButton } from './Button';
 import { Menu, type MenuEntry } from './Menu';
+import { findUnsupported } from '../lib/unsupported';
 
 const MAX_TAGS = 5;
 
@@ -21,16 +22,18 @@ export interface ComposerProps {
   contexts?: { id: string; label: string }[];   // what the next message is about: the parts picked in the 3D view, one tag each
   onRemoveContext?: (id: string) => void;
   suggestions?: string[];          // follow-up requests worth trying; picking one fills the box and does not send
+  unsupportedWords?: Record<string, string>;   // things that cannot be built yet; named under the box while typing
   onClearContext?: () => void;
 }
 
 /** Enter sends, Shift+Enter inserts a newline. While running, the send button becomes Stop. */
-export function Composer({ variant = 'hero', placeholder, running, disabled, error, modelLabel, modelEntries, onSubmit, onStop, onAttach, initialValue = '', contexts = [], onRemoveContext, onClearContext, suggestions = [] }: ComposerProps) {
+export function Composer({ variant = 'hero', placeholder, running, disabled, error, modelLabel, modelEntries, onSubmit, onStop, onAttach, initialValue = '', contexts = [], onRemoveContext, onClearContext, suggestions = [], unsupportedWords }: ComposerProps) {
   const [allTags, setAllTags] = useState(false);
   const [text, setText] = useState(initialValue);
   const ref = useRef<HTMLTextAreaElement>(null);
   const labelId = useId();
   const canSend = text.trim().length > 0 && !disabled && !running;
+  const notBuilt = unsupportedWords ? findUnsupported(text, unsupportedWords) : [];
 
   const send = () => {
     if (!canSend) return;
@@ -126,6 +129,9 @@ export function Composer({ variant = 'hero', placeholder, running, disabled, err
           </div>
         </div>
       </div>
+      {notBuilt.length > 0 && !error && (
+        <p className="mt-1 text-xs text-muted" data-testid="unsupported-note">Not built yet: {notBuilt.join(', ')}. The result will say so; everything else is built.</p>
+      )}
       <p role={error ? 'alert' : 'status'} className={cn('mt-1 min-h-5 text-xs', error ? 'text-danger' : 'sr-only')}>
         {error ?? (running ? 'Run in progress' : '')}
       </p>

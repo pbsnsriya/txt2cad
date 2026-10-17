@@ -78,7 +78,7 @@ test('F01-E5 reloading mid-run cancels that run cleanly and the session can simp
 test.describe('F01-E6 backend unreachable', () => {
   test.use({ allowErrors: [/Failed to load resource|ERR_FAILED|net::/] });
   test('says so and does not let the user type into the void', async ({ page }) => {
-    await page.route('http://127.0.0.1:8771/**', (r) => r.abort());     // the backend only; not the app's own src/api modules
+    await page.route(`${API}/**`, (r) => r.abort());     // the backend only; not the app's own src/api modules
     await page.goto('/');
     await expect(page.getByText('Server offline')).toBeVisible();
     await expect(composer(page)).toBeDisabled();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, ChevronDown, Download, FileText, FolderOpen, LayoutGrid, Moon, Receipt, ShieldCheck, Sun } from 'lucide-react';
-import { ApiError, api, runPrompt, type Analysis, type Profile, type ProjectDetail, type ProjectRow } from '../api/client';
+import { Box, ChevronDown, Download, FileText, FolderOpen, LayoutGrid, MessageSquare, Moon, Receipt, ShieldCheck, Sun } from 'lucide-react';
+import { ApiError, api, runPrompt, type Analysis, type Capabilities, type Profile, type ProjectDetail, type ProjectRow } from '../api/client';
 import { emptyRun, reduceRun, startRun, type RunView } from '../state/run';
 import { Badge } from '../ui/Badge';
 import { Button, IconButton } from '../ui/Button';
@@ -17,6 +17,7 @@ import { QuantitiesTab } from './QuantitiesTab';
 import type { Picked } from '../viewer/IfcViewer';
 import { HomeScreen } from './HomeScreen';
 import { ProjectsSheet } from './ProjectsSheet';
+import { FeedbackDialog } from './FeedbackDialog';
 
 const STARTERS = ['Two-storey family house', 'Small office floor', 'Studio flat with a kitchen', 'Three-storey townhouse', 'Cabin with one bedroom'];
 const STARTER_PROMPTS: Record<string, string> = {
@@ -47,6 +48,7 @@ function writeStored(key: string, v: string): void { try { localStorage.setItem(
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (readStored('theme') === 'dark' ? 'dark' : 'light'));
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [assistant, setAssistant] = useState(ASSISTANT_DEFAULT);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
@@ -54,6 +56,7 @@ export function App() {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [backend, setBackend] = useState<{ ok: boolean; label: string }>({ ok: false, label: 'Checking...' });
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [caps, setCaps] = useState<Capabilities | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [run, setRun] = useState<RunView>(emptyRun);
   const [viewing, setViewing] = useState(0);
@@ -81,6 +84,7 @@ export function App() {
     (async () => {
       try {
         const [h, p, list] = await Promise.all([api.health(), api.profiles(), api.projects()]);
+        api.capabilities().then(setCaps).catch(() => undefined);          // a nicety: the app works without it
         setBackend({ ok: true, label: `${h.llm.profile}` });
         setProfiles(p);
         setProfileId((cur) => cur ?? p.find((x) => x.is_default)?.id ?? null);
@@ -257,20 +261,22 @@ export function App() {
             }
             entries={exportEntries}
           />
+          <Button variant="ghost" size="sm" icon={<MessageSquare className="size-4" aria-hidden />} className="max-md:px-2" onClick={() => setFeedbackOpen(true)}><span className="max-md:sr-only">Feedback</span></Button>
           <IconButton label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
           </IconButton>
         </header>
         {!inWorkspace ? (
           <HomeScreen starters={STARTERS} prompts={STARTER_PROMPTS} projects={projects} modelLabel={modelLabel} modelEntries={modelEntries}
-            disabled={!backend.ok} error={error || undefined} onSubmit={(t) => void submit(t)} onOpen={(id) => void openProject(id)} />
+            disabled={!backend.ok} error={error || undefined} onSubmit={(t) => void submit(t)} onOpen={(id) => void openProject(id)}
+            capabilities={caps?.capabilities} unsupportedWords={caps?.unsupported_words} />
         ) : (
           <main className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
             <section className="relative flex h-[52vh] min-h-72 min-w-0 shrink-0 flex-col md:order-3 md:h-auto md:min-h-0 md:flex-1 md:shrink" aria-label="Model">
               <Tabs value={tab} onValueChange={setTab} className="flex h-full min-h-0 flex-col" contentClassName="min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col"
                 items={[
                   { id: '3d', label: '3D view', icon: <Box className="size-4" aria-hidden />, keepMounted: true, content: (
-                    <ViewerPane badge={badge} empty={!viewing && !building} building={building} theme={theme} onReady={onViewer} follow={follow} onFollow={setFollow} selected={selected} onPick={setSelected} />) },
+                    <ViewerPane pictureName={`${(detail?.project.name ?? 'txt2cad').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'txt2cad'}-v${viewing || 0}`} badge={badge} empty={!viewing && !building} building={building} theme={theme} onReady={onViewer} follow={follow} onFollow={setFollow} selected={selected} onPick={setSelected} />) },
                   { id: 'dr', label: 'Plans', icon: <FileText className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
                     content: <DrawingsTab url={detail && viewing ? `${api.drawingUrl(detail.project.id, viewing)}?v=${detail.head?.id ?? ''}` : null} onDownload={(f) => download(viewing, f)} /> },
                   { id: 'cr', label: 'Design check', icon: <ShieldCheck className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
@@ -303,13 +309,14 @@ export function App() {
               <div className="border-t border-border p-3">
                 <Composer key={`${detail?.project.id ?? 'new'}-${initialPrompt}`} variant="docked" initialValue={initialPrompt}
                   placeholder={detail?.head ? 'What should change?' : 'Describe the building you want...'} modelLabel={modelLabel} modelEntries={modelEntries}
-                  running={building} disabled={!backend.ok} error={error || undefined} suggestions={head?.suggestions}
+                  running={building} disabled={!backend.ok} error={error || undefined} suggestions={head?.suggestions} unsupportedWords={caps?.unsupported_words}
                   contexts={selected.map((s) => ({ id: s.guid, label: tagLabel(s) }))} onRemoveContext={(id) => viewer.current?.removeFromSelection(id)} onClearContext={() => viewer.current?.clearSelection()} onSubmit={(t) => void submit(t)} onStop={() => abort.current?.abort()} />
               </div>
             </aside>
           </main>
         )}
       </div>
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} prompt={detail?.versions.find((v) => v.number === viewing)?.prompt} summary={detail?.versions.find((v) => v.number === viewing)?.summary} version={viewing || undefined} />
       <ProjectsSheet open={projectsOpen} onOpenChange={setProjectsOpen} projects={projects} currentId={detail?.project.id}
         onOpen={(id) => void openProject(id)} onNew={() => void newSession()} onDelete={setDeleting} />
       <ConfirmDialog open={Boolean(deleting)} onOpenChange={(o) => !o && setDeleting(null)} title="Delete this project?"

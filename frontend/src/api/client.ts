@@ -11,6 +11,9 @@ export interface VersionInfo {
 }
 export interface ProjectDetail { project: ProjectRow; head: VersionInfo | null; versions: { number: number; prompt: string; summary: string; mode: string }[] }
 
+export interface Capability { id: string; status: 'yes' | 'partly' | 'no'; label: string; note: string }
+export interface Capabilities { capabilities: Capability[]; unsupported_words: Record<string, string> }
+
 export interface Clause { id: string; title: string; section: string; status: 'pass' | 'fail' | 'info'; measured: string; required: string; elements: string[]; guids: string[]; fix: string }
 export interface Review { ruleset: string; disclaimer: string; summary: { gross_area_m2: number; levels: number; rooms: number; pass: number; fail: number; info: number }; clauses: Clause[] }
 export interface QuantityRow { group: string; item: string; qty: number; unit: string; note: string }
@@ -50,6 +53,7 @@ export const api = {
   analysis: (id: string, n: number) => request<Analysis>(`/api/projects/${id}/versions/${n}/analysis`),
   drawingUrl: (id: string, n: number) => `${API_BASE}/api/projects/${id}/versions/${n}/drawing`,
   profiles: () => request<Profile[]>('/api/llm/profiles'),
+  capabilities: () => request<Capabilities>('/api/capabilities'),
   projects: () => request<ProjectRow[]>('/api/projects'),
   createProject: (name: string) => request<ProjectRow>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) }),
   project: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),

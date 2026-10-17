@@ -199,6 +199,14 @@ export class IfcViewer {
     return ids.length;
   }
 
+  /** The 3D view as a PNG data URL, as it looks right now (drawn again first, because a canvas that is not kept cannot be read after the frame). */
+  snapshot(): string | null {
+    const renderer = this.world?.renderer?.three;
+    if (!renderer || !this.model) return null;
+    renderer.render(this.world.scene.three, this.world.camera.three);
+    return renderer.domElement.toDataURL('image/png');
+  }
+
   clearSelection(): void {
     this.picked.clear();
     void this.fragments?.resetHighlight();

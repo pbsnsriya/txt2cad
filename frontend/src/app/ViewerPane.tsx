@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, BoxSelect, Info, Loader2, MousePointerClick, Scissors } from 'lucide-react';
+import { Box, BoxSelect, Camera, Info, Loader2, MousePointerClick, Scissors } from 'lucide-react';
 import { IfcViewer, type Picked, type ViewName } from '../viewer/IfcViewer';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -15,8 +15,8 @@ export type OnReady = (h: ViewerHandle | null) => void;
 export interface ViewerHandle { load: (url: string, refit?: boolean) => Promise<void>; clear: () => void; applyTheme: () => void; clearSelection: () => void; removeFromSelection: (guid: string) => void; highlight: (guids: string[]) => Promise<number> }
 
 /** The 3D canvas plus its overlays. The parent drives it through `onReady` (a handle) so React never re-renders the canvas. */
-export function ViewerPane({ badge, empty, building, theme, onReady, follow, onFollow, selected, onPick }: {
-  badge: string; empty: boolean; building: boolean; theme: string; onReady: OnReady; follow: boolean; onFollow: (v: boolean) => void;
+export function ViewerPane({ badge, empty, building, theme, onReady, follow, onFollow, selected, onPick, pictureName }: {
+  pictureName: string; badge: string; empty: boolean; building: boolean; theme: string; onReady: OnReady; follow: boolean; onFollow: (v: boolean) => void;
   selected: Picked[]; onPick: (p: Picked[]) => void;
 }) {
   const [area, setArea] = useState(false);
@@ -69,7 +69,11 @@ export function ViewerPane({ badge, empty, building, theme, onReady, follow, onF
           <Button key={v.id} size="sm" variant="ghost" className="rounded-pill px-3" onClick={() => viewer.current?.setView(v.id)}>{v.label}</Button>
         ))}
         <span className="mx-1 w-px self-stretch bg-border" aria-hidden />
-        <Button size="sm" variant={area ? 'primary' : 'ghost'} className="rounded-pill px-3" aria-pressed={area} icon={<BoxSelect className="size-4" aria-hidden />} onClick={() => setArea(!area)}>
+        <Button size="sm" variant="ghost" className="whitespace-nowrap rounded-pill px-3" icon={<Camera className="size-4" aria-hidden />} disabled={empty && !building}
+          onClick={() => { const url = viewer.current?.snapshot(); if (url) { const a = document.createElement('a'); a.href = url; a.download = `${pictureName}.png`; document.body.appendChild(a); a.click(); a.remove(); } }}>
+          Save picture
+        </Button>
+        <Button size="sm" variant={area ? 'primary' : 'ghost'} className="whitespace-nowrap rounded-pill px-3" aria-pressed={area} icon={<BoxSelect className="size-4" aria-hidden />} onClick={() => setArea(!area)}>
           Select area
         </Button>
       </div>

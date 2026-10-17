@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
 
-export const API = 'http://127.0.0.1:8771';
+export const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8771}`;
 export const HOUSE = 'Two storey house with a kitchen, living room and three bedrooms, a garage.';
 export const CABIN = 'A small one storey cabin with one bedroom and a kitchen.';
 

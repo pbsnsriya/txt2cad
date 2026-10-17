@@ -7,7 +7,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card, ListRow } from '../ui/Surface';
 
-const PHASE_ORDER = ['Setup', 'Rooms', 'Doors and stairs', 'Windows and roof', 'Interiors', 'Changes', 'Notes', 'Other'];
+const PHASE_ORDER = ['Setup', 'Rooms', 'Doors and stairs', 'Windows and roof', 'Interiors', 'Finishing touches', 'Changes', 'Notes', 'Other'];
 
 export function Trace({ run }: { run: RunView }) {
   const end = useRef<HTMLDivElement>(null);
