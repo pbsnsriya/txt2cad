@@ -11,7 +11,7 @@ export const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5175);
 
 export default defineConfig({
   testDir: './tests',
-  timeout: live ? 240_000 : 60_000,
+  timeout: live ? 240_000 : process.env.E2E_VIDEO === '1' ? 120_000 : 60_000,      // finishing a video can take a while
   expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,                        // one shared backend and database

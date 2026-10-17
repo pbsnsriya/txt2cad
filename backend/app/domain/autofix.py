@@ -6,9 +6,14 @@ This is not guessing at what the person wanted. These are the things `checks.com
 
 from __future__ import annotations
 
+from typing import Any
+
+from . import checks
 from .checks import NO_WINDOW_NEEDED
 from .derive import DesignError, derive, exterior_sides, wall_pieces
 from .design import Design, Door, Stair, Window
+from .reflow import CannotReflow, reflow
+from .steps import Step, StepError, apply_step
 
 MIN_DOOR_WALL_M = 1.2
 STAIR_ROOM_ORDER = ("hall", "living", "dining", "office", "kitchen", "bedroom", "utility", "storage", "other")
@@ -119,3 +124,175 @@ def _windows(d: Design, notes: list[str]) -> Design:
                 notes.append(f"added a window to {r.name} on its {p.side} side")
                 break
     return d
+
+
+# --- a plan the model could not draw: lay the ground floor out in code --------------------------------------------------------------------------------------
+def _wanted_shape(item: dict[str, Any]) -> str | None:
+    kw = f"{item.get('params', {}).get('keyword', '')} {item.get('text', '')}".lower().replace("-", " ")
+    if item.get("kind") != "feature":
+        return None
+    if any(w in kw for w in ("courtyard", "patio", "atrium")):
+        return "courtyard"
+    if "l shape" in kw:
+        return "L"
+    if "u shape" in kw:
+        return "U"
+    return None
+
+
+def _met(design: Design, checklist: list[dict[str, Any]]) -> int:
+    return sum(1 for r in checks.check(design, checklist) if r["status"] == "met")
+
+
+def _put_back(new: Design, old: Design, level: str) -> Design:
+    """The doors and windows of the old plan on `level` that still have a wall to sit in."""
+    on_level = {r.id for r in old.rooms if r.level == level}
+    d = new
+    for door in [x for x in old.doors if x.room in on_level]:
+        for candidate in (door, door.model_copy(update={"side": None})):
+            trial = d.model_copy(deep=True)
+            trial.doors = [*trial.doors, candidate]
+            if _builds(trial):
+                d = trial
+                break
+    for win in [w for w in old.windows if w.room in on_level]:
+        trial = d.model_copy(deep=True)
+        trial.windows = [*trial.windows, win]
+        if _builds(trial):
+            d = trial
+    return d
+
+
+def _relaid(design: Design, level: str, shape: str) -> Design | None:
+    try:
+        new = reflow(design, level, shape)
+    except CannotReflow:
+        return None
+    if not _builds(new):
+        return None
+    new = _put_back(new, design, level)
+    if any(f.room in {r.id for r in design.rooms if r.level == level} for f in design.furniture):       # it had furniture: furnish the new plan the same way
+        try:
+            new = apply_step(new, Step(step="furnish", room="all", level=level))
+        except StepError:
+            pass
+    return new if _builds(new) else None
+
+
+def _enclosed(design: Design) -> list[str]:
+    outside = exterior_sides(design)
+    return [r.id for r in design.rooms if r.roofed and r.kind not in NO_WINDOW_NEEDED and not outside.get(r.id) and not any(w.room == r.id for w in design.windows)]
+
+
+SHAPE_SENTENCE = {"L": "an L", "U": "a U", "courtyard": "a ring of rooms around an open courtyard"}
+
+
+def reshape(design: Design, checklist: list[dict[str, Any]]) -> tuple[Design, list[str]]:
+    """For a new building only: if the request asked for an L, a U or a courtyard and the plan is not one, lay the ground floor out as that; and if a room that needs
+    daylight has no outside wall, put the storey's rooms in two rows so each one has. Kept only when the building still builds and no requirement that was met is lost."""
+    if not design.rooms or not design.levels or not _builds(design):
+        return design, []
+    notes: list[str] = []
+    ground = next((lv.id for lv in design.levels if any(r.level == lv.id for r in design.rooms)), None)
+    if ground is None:
+        return design, notes
+    before = _met(design, checklist)
+    for item in checklist:
+        shape = _wanted_shape(item)
+        if shape is None or checks.check(design, [item])[0]["status"] != "unmet":
+            continue
+        new = _relaid(design, ground, shape)
+        if new is not None and checks.check(new, [item])[0]["status"] == "met" and _met(new, checklist) >= before:
+            design, before = new, _met(new, checklist)
+            notes.append(f"laid the {design.level(ground).name or ground} out again as {SHAPE_SENTENCE[shape]}, because the plan was not one")  # type: ignore[union-attr]
+    shaped = any(_wanted_shape(i) for i in checklist)
+    for lv in design.levels:
+        if shaped and lv.id == ground:
+            continue
+        enclosed = _enclosed(design)
+        if not any(r.id in enclosed and r.level == lv.id for r in design.rooms):
+            continue
+        new = _relaid(design, lv.id, "rows")
+        if new is not None and not any(r.level == lv.id and r.id in _enclosed(new) for r in new.rooms) and _met(new, checklist) >= before:
+            design, before = new, _met(new, checklist)
+            notes.append(f"laid {lv.name or lv.id} out in two rows, because some rooms had no outside wall and so no window")
+    return design, notes
+
+
+# --- pieces asked for by name ---------------------------------------------------------------------------------------------------------------------------------
+_HOME_FOR = {"bed_double": ("bedroom", "living", "other"), "bed_single": ("bedroom", "living", "other"), "sofa": ("living", "other"), "armchair": ("living", "bedroom", "other"),
+             "coffee_table": ("living",), "dining_table": ("dining", "living", "kitchen"), "wardrobe": ("bedroom", "living"), "desk": ("office", "bedroom", "living"),
+             "bookshelf": ("living", "office", "bedroom"), "tv_unit": ("living", "bedroom"), "kitchen_counter": ("kitchen", "living", "dining"),
+             "kitchen_island": ("kitchen", "living"), "fridge": ("kitchen", "living"), "cooker": ("kitchen", "living"), "washing_machine": ("utility", "kitchen", "bathroom"),
+             "plant": ("living", "hall", "bedroom"), "floor_lamp": ("living", "bedroom"), "bench": ("hall", "living"), "dresser": ("bedroom", "living")}
+
+
+def furnish_wanted(design: Design, checklist: list[dict[str, Any]]) -> tuple[Design, list[str]]:
+    """Pieces the request named that the model did not place: furnish the rooms the usual way, then put any still missing against a free wall."""
+    wanted = [i for i in checklist if i.get("kind") == "furniture" and i.get("params", {}).get("keyword")]
+    if not wanted or not design.rooms or not _builds(design):
+        return design, []
+    notes: list[str] = []
+    if not any(checks.check(design, [i])[0]["status"] == "unmet" for i in wanted):
+        return design, notes
+    trial = design.model_copy(deep=True)
+    try:
+        trial = apply_step(trial, Step(step="furnish", room="all"))
+        if _builds(trial):
+            design = trial
+            notes.append("furnished the rooms in the usual way, because the request named pieces of furniture")
+    except StepError:
+        pass
+    for item in wanted:
+        kw = str(item["params"]["keyword"])
+        kind = "bed_double" if kw == "bed" else kw
+        homes = _HOME_FOR.get(kind, ("living", "other"))
+        rooms = sorted([r for r in design.rooms if r.kind in homes and r.roofed], key=lambda r: (homes.index(r.kind), -r.rect[2] * r.rect[3]))
+        for _ in range(int(item["params"].get("count", 1))):
+            if checks.check(design, [item])[0]["status"] != "unmet":
+                break
+            placed = False
+            for room in rooms:
+                for side in ("N", "S", "E", "W", "NE", "NW", "SE", "SW"):
+                    trial = design.model_copy(deep=True)
+                    try:
+                        trial = apply_step(trial, Step(step="furniture", room=room.id, kind=kind, side=side))
+                    except (StepError, ValueError):
+                        continue
+                    if _builds(trial):
+                        design, placed = trial, True
+                        notes.append(f"placed a {kind.replace('_', ' ')} in {room.name}, because the request named one")
+                        break
+                if placed:
+                    break
+            if not placed:
+                break
+    return design, notes
+
+
+# --- an edit leaves alone what it was not about -------------------------------------------------------------------------------------------------------------
+def keep_untouched(design: Design, base: Design, prompt: str) -> tuple[Design, list[str]]:
+    """After an edit, a room the request did not mention that moved, changed size or went is put back as it was, if it fits there without touching another room."""
+    from shapely.geometry import box
+
+    words = set(prompt.lower().replace("-", " ").replace(",", " ").replace(".", " ").split())
+    notes: list[str] = []
+    d = design
+    for old in base.rooms:
+        mentioned = {w.rstrip("s") for w in words}
+        if {w.rstrip("s") for w in old.name.lower().split()} & mentioned or old.kind.rstrip("s") in mentioned or old.level not in {lv.id for lv in d.levels}:
+            continue
+        now = d.room(old.id)
+        if now is not None and tuple(now.rect) == tuple(old.rect):
+            continue
+        shape = box(old.rect[0], old.rect[1], old.rect[0] + old.rect[2], old.rect[1] + old.rect[3])
+        if any(r.id != old.id and r.level == old.level and shape.intersection(box(r.rect[0], r.rect[1], r.rect[0] + r.rect[2], r.rect[1] + r.rect[3])).area > 1e-6 for r in d.rooms):
+            continue
+        trial = d.model_copy(deep=True)
+        trial.rooms = [old.model_copy(deep=True) if r.id == old.id else r for r in trial.rooms] if now is not None else [*trial.rooms, old.model_copy(deep=True)]
+        if not _builds(trial):
+            continue
+        trial = _put_back(trial, base.model_copy(update={"doors": [x for x in base.doors if x.room == old.id or x.to == old.id]}), old.level) if now is None else trial
+        d = trial if _builds(trial) else d
+        notes.append(f"kept {old.name} as it was, because the request was not about it")
+    return d, notes

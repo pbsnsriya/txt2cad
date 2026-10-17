@@ -39,26 +39,28 @@ Add a case to `backend/evals/prompts.json` whenever a real request goes wrong; t
 One run each, Gemini 2.5 Flash, 2026-10-16. The model gives different answers on different runs: running the same cases again moved two or three of them from pass to fail or the reverse,
 so read these as a band of about three cases, and use `--repeat 3` before drawing a conclusion from a small change.
 
-| | Before the finishing pass | After it | After it, plus named furniture and shape examples (a different day's model speed) |
-| --- | --- | --- | --- |
-| **Passed** | 21 of 47 | 33 of 47 | 30 of 47 |
-| Mean score | 0.887 | 0.936 | 0.874 |
-| Houses (10) | 3 | 6 | 6 |
-| Flats (5) | 1 | 3 | 4 |
-| Commercial (6) | 4 | 5 | 4 |
-| Stated sizes (6) | 2 | 5 | 5 |
-| Roofs (3) | 2 | 3 | 3 |
-| Interiors (4) | 3 | 3 | 3 |
-| Shapes (3) | 0 | 0 | 0 |
-| Not built yet (3) | 0 | 2 | 1 |
-| Vague (2) | 1 | 2 | 0 |
-| Edits (5) | 5 | 4 | 4 |
-| Median seconds | 28.9 | 22.2 | 31.0 |
+| | Before the finishing pass | After it | After it, plus named furniture and shape examples (a different day's model speed) | Layout in code, wanted furniture, untouched rooms kept |
+| --- | --- | --- | --- | --- |
+| **Passed** | 21 of 47 | 33 of 47 | 30 of 47 | **42 of 47** |
+| Mean score | 0.887 | 0.936 | 0.874 | 0.986 |
+| Houses (10) | 3 | 6 | 6 | 9 |
+| Flats (5) | 1 | 3 | 4 | 3 |
+| Commercial (6) | 4 | 5 | 4 | 6 |
+| Stated sizes (6) | 2 | 5 | 5 | 6 |
+| Roofs (3) | 2 | 3 | 3 | 3 |
+| Interiors (4) | 3 | 3 | 3 | 4 |
+| Shapes (3) | 0 | 0 | 0 | 2 |
+| Not built yet (3) | 0 | 2 | 1 | 3 |
+| Vague (2) | 1 | 2 | 0 | 2 |
+| Edits (5) | 5 | 4 | 4 | 4 |
+| Median seconds | 28.9 | 22.2 | 31.0 | 31.5 |
 
-The third run's drop is mostly the model, not the code: four of its failures never saved. Three (v1, v2, e5) are "the model took too long to answer" (127 s, 76 s, 64 s) and one (i3, a studio with a sofa, a double bed and a kitchen counter) was refused by the quality gate because the named pieces were counted as things not built. That was a bug and is fixed (named furniture no longer counts as evidence the building failed); the four cases have not been re-run since.
+The third run's drop was mostly the model, not the code: three cases never saved because the model took too long to answer, and one (a studio with a sofa, a double bed and a kitchen counter) was refused by the quality gate because the named pieces were counted as things not built. That bug is fixed; all four passed in the last run.
+
+The last column is the same 47 requests after three changes made from the earlier misses: a storey the model could not draw as an L, a U or a ring around a courtyard is laid out again in code (and rooms with no outside wall are put in two rows so each has a window); pieces the request names are placed if the model left them out; and an edit puts back a room it was not about. One run, so the same three-case band applies.
 
 What moved the numbers: most failures at first were rooms with no way in, no window or no stair, which the model was being asked to fix over and over. The finishing pass adds them in code. What is left
-is mostly layouts that cannot be fixed by adding something: a bedroom with no outside wall, a house the model did not shape as an L, a courtyard it did not leave open.
+is a model that leaves out a room that was asked for (a second bathroom, a bedroom), a stated total area missed by a wide margin, and an edit that resizes the room it was meant to leave alone.
 
 ## What it does not tell you
 

@@ -44,7 +44,7 @@ that one derived description, so the 3D model and the plans always agree to the 
 | **Roofs** | Flat, gable (pitched), hip and shed roofs on plain rectangular areas, with a pitch in degrees. |
 | **What next** | After a build, three follow-up requests drawn from the building itself. Picking one fills the box; nothing is sent until you press Enter. |
 | **Layout options** | "Try 3 other layouts" builds your first request three more ways (compact, open plan, spine). Each is saved as a new version with a one-line difference. |
-| **Finishing touches** | If the model leaves a room without a door, a room without a window or a storey without a stair, the app adds them (and says so in the version) rather than sending the model round again. |
+| **Finishing touches** | If the model leaves a room without a door, a room without a window or a storey without a stair, the app adds them (and says so in the version) rather than sending the model round again. A new building asked to be L-shaped, U-shaped or built around a courtyard, but drawn as a rectangle, is laid out again in code; pieces of furniture the request names are placed if the model left them out; and an edit puts back a room it was not about. |
 | **Say what it can't do** | The Home screen lists what is built, partly built and not built; typing "basement" or "pool" shows a note before you send; the result names anything it left out. See [docs/supported.md](docs/supported.md). |
 | **Feedback and pictures** | "Feedback" writes a note you can read in full and opens it as a GitHub issue (your request is included only if you tick the box). "Save picture" saves the 3D view as a PNG. |
 | **Exports** | IFC4 for BIM tools, DXF floor plans (named layers, metres, door swings, dimensions, stair symbols), an SVG of the plans, and JSON of the design and geometry. |
@@ -129,7 +129,7 @@ current design go to Google using your own key. The model menu says where each m
 | Streaming | Server-Sent Events over POST |
 | Frontend | React 19, TypeScript 7, Vite 8, Tailwind CSS v4, Radix UI primitives, Lucide icons |
 | 3D | That Open (`@thatopen/components`, `@thatopen/fragments`) on three.js, with `web-ifc` pinned to 0.0.77 |
-| Tests | pytest (263 tests, no network), Vitest (15 tests), headless-browser checks of the main flows |
+| Tests | pytest (282 tests, no network), Vitest (15 tests), headless-browser checks of the main flows |
 
 ## Project layout
 
@@ -156,7 +156,7 @@ docs/              architecture, API, screenshots
 ## Tests
 
 ```bash
-cd backend  && .venv/Scripts/python -m pytest        # 263 tests on the practice model, no network
+cd backend  && .venv/Scripts/python -m pytest        # 282 tests on the practice model, no network
 cd frontend && npm test                                # 15 tests
 cd frontend && npx tsc --noEmit                        # type check
 cd design   && python contrast.py tokens.json          # WCAG contrast of every text/background pair (also tokens.dark.json)

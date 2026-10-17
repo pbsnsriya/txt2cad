@@ -180,7 +180,16 @@ async def _run(inp: RunInput, emit) -> None:
             if stream.over_limit:
                 design.notes.append(f"round {rnd + 1} was stopped early: {stream.limit_reason}")
             applied_total += stream.applied
-            design, finishing = autofix.complete(design)          # the doors, windows and stairs every building needs, when the model left them out
+            finishing: list[str] = []
+            if mode == "design":                                  # a new building only: an edit is never laid out again behind the person's back
+                design, laid = autofix.reshape(design, checklist)
+                design, placed = autofix.furnish_wanted(design, checklist)
+                finishing += laid + placed
+            if mode == "edit" and base:
+                design, kept = autofix.keep_untouched(design, Design.model_validate_json(base["design_json"]), inp.prompt)
+                finishing += kept
+            design, completed = autofix.complete(design)          # the doors, windows and stairs every building needs, when the model left them out
+            finishing += completed
             for text in finishing:
                 await emit("move", text[0].upper() + text[1:], index=-1, ok=True, phase="Finishing touches", why="every building needs this", kind="finishing", facts=facts(design), removed=[])
             if finishing:
