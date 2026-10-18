@@ -168,6 +168,19 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 | EV-2 | smoke | The offline model passes the cases marked for it | All pass | `test_eval.py` |
 | EV-3 | live | `python -m evals.run --live` | A pass rate by category; see `docs/evaluation.md` | by hand, costs about $0.80 |
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`, as three parallel jobs, and none of them can be skipped:
+
+| Job | What it runs |
+| --- | --- |
+| Backend tests | `pytest` on the practice model, with no network and no API key |
+| Frontend | `tsc --noEmit`, Vitest, the production build, and `npm audit --audit-level=high` |
+| Browser tests | The Playwright suite against an isolated backend and database (Chromium), with the report kept for 7 days when it fails |
+
+The live checks (`python -m evals.run --live`, `E2E_LIVE=1`) are not part of CI: they need a real key and cost money. Dependabot opens weekly update pull requests for the Python and npm packages and a monthly one for the workflow actions.
+To make the checks block a merge, turn on branch protection for `main` in the repository settings and require the three jobs.
+
 ## Checked by hand
 
 - Visual glitches in the 3D view on real graphics hardware (the automated runs use a software renderer).
