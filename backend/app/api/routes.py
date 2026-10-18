@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from .. import config
 from ..db import repo
+from ..version import __version__
 from ..analysis.quantities import quantities
 from ..analysis.review import review
 from ..domain import envelope
@@ -48,7 +49,7 @@ def make_llm(profile: dict[str, Any]) -> LLM:
 @router.get("/health")
 def health() -> dict[str, Any]:
     default = repo.get_profile(OWNER, None)
-    return {"ok": True, "llm": {"profile": default["name"], "provider": default["provider"], "model": default["model"]}}
+    return {"ok": True, "version": __version__, "llm": {"profile": default["name"], "provider": default["provider"], "model": default["model"]}}
 
 
 @router.get("/capabilities")

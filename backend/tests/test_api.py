@@ -2,6 +2,7 @@
 
 import io
 import json
+import re
 
 import ezdxf
 import ifcopenshell
@@ -41,7 +42,10 @@ def run(client, pid, prompt=PROMPT, **extra):
 
 
 def test_health_and_profiles(client):
-    assert client.get("/api/health").json()["llm"]["provider"] == "mock"
+    health = client.get("/api/health").json()
+    assert health["llm"]["provider"] == "mock"
+    assert re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", health["version"])      # a semantic version
+    assert health["version"] == open(config.BACKEND_DIR.parent / "VERSION", encoding="utf-8").read().strip()
     names = {p["name"]: p for p in client.get("/api/llm/profiles").json()}
     assert names["Practice mode"]["ready"] and not names["Gemini"]["ready"]
 

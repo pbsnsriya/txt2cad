@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import config
 from .api.routes import router
 from .db import repo
+from .version import __version__
 
 
 @asynccontextmanager
@@ -24,7 +25,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="txt2cad", lifespan=lifespan)
+    app = FastAPI(title="txt2cad", version=__version__, lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=config.ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
     app.include_router(router)
 
