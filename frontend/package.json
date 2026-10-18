@@ -27,7 +27,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "three": "^0.186.1",
-    "web-ifc": "0.0.77"
+    "web-ifc": "0.0.78"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -41,6 +41,6 @@
     "vitest": "^5.0.3"
   },
   "overrides": {
-    "web-ifc": "0.0.77"
+    "web-ifc": "0.0.78"
   }
 }
