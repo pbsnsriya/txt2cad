@@ -82,7 +82,7 @@ def _layout_l(rooms: list[Room]) -> dict[str, tuple[float, float, float, float]]
     return out
 
 
-def _layout_u(rooms: list[Room]) -> dict[str, tuple[float, float, float, float]]:
+def _layout_u(rooms: list[Room], court: bool = False) -> dict[str, tuple[float, float, float, float]]:
     if len(rooms) < 4:
         raise CannotReflow("a U needs at least four rooms")
     items = _order(rooms)
@@ -92,19 +92,42 @@ def _layout_u(rooms: list[Room]) -> dict[str, tuple[float, float, float, float]]
     if not left or not right:
         raise CannotReflow("a U needs a room in each arm")
     total = max(_length(row, DEPTH), 2 * DEPTH + NOTCH)
+    arm = max(_length(left, DEPTH), _length(right, DEPTH))
     out = _row(row, 0, 0, DEPTH, total)
-    out.update(_col(left, 0, DEPTH, DEPTH))
-    out.update(_col(right, total - DEPTH, DEPTH, DEPTH))
+    out.update(_col(left, 0, DEPTH, DEPTH, arm if court else None))
+    out.update(_col(right, total - DEPTH, DEPTH, DEPTH, arm if court else None))
+    if court:
+        out["__court__"] = (DEPTH, DEPTH, round(total - 2 * DEPTH, 1), round(arm, 1))          # the gap of the U is the courtyard, with rooms on three sides
     return out
 
 
-def _layout_rows(rooms: list[Room]) -> dict[str, tuple[float, float, float, float]]:
+def _layout_rows(rooms: list[Room], fixed: dict[str, tuple[float, float]] | None = None) -> dict[str, tuple[float, float, float, float]]:
+    """Two rows. A room with a size the request stated keeps it: it is placed as it is and its row is as deep as the deepest of them."""
     if len(rooms) < 2:
         raise CannotReflow("two rows need at least two rooms")
-    south, north = _balanced(_order(rooms), 2, DEPTH)
-    total = max(_length(south, DEPTH), _length(north, DEPTH))
-    out = _row(south, 0, 0, DEPTH, total)
-    out.update(_row(north, 0, DEPTH, DEPTH, total))
+    fixed = fixed or {}
+    free = [r for r in rooms if r.id not in fixed]
+    south, north = _balanced(_order(free), 2, DEPTH)
+    for r in rooms:
+        if r.id in fixed:
+            min((south, north), key=lambda g: _length(g, DEPTH) + sum(fixed[x.id][0] for x in g if x.id in fixed)).append(r)
+
+    def lay(row: list[Room], y: float, depth: float, length: float | None) -> dict[str, tuple[float, float, float, float]]:
+        out, x = {}, 0.0
+        widths = {r.id: (fixed[r.id][0] if r.id in fixed else _along(r, depth)) for r in row}
+        if length is not None and row:
+            last = row[-1]
+            widths[last.id] = round(max(widths[last.id], length - sum(w for i, w in widths.items() if i != last.id)), 1)
+        for r in row:
+            out[r.id] = (round(x, 1), round(y, 1), widths[r.id], fixed[r.id][1] if r.id in fixed else depth)
+            x += widths[r.id]
+        return out
+
+    ds = max([DEPTH, *[fixed[r.id][1] for r in south if r.id in fixed]])
+    dn = max([DEPTH, *[fixed[r.id][1] for r in north if r.id in fixed]])
+    total = max(sum(fixed[r.id][0] if r.id in fixed else _along(r, ds) for r in south), sum(fixed[r.id][0] if r.id in fixed else _along(r, dn) for r in north))
+    out = lay(south, 0, ds, total)
+    out.update(lay(north, ds, dn, total))
     return out
 
 
@@ -126,26 +149,31 @@ def _layout_courtyard(rooms: list[Room], court: tuple[float, float, float, float
     return out
 
 
-def reflow(design: Design, level: str, shape: str) -> Design:
+def _is_court(r: Room) -> bool:
+    return bool({"courtyard", "patio", "atrium"} & set(r.name.lower().replace("-", " ").split()))
+
+
+def reflow(design: Design, level: str, shape: str, court_in_notch: bool = False, fixed: dict[str, tuple[float, float]] | None = None) -> Design:
     """The design with the rooms of `level` laid out as `shape`. Raises CannotReflow when the rooms cannot make it; the caller checks that the result builds."""
     if shape not in SHAPES:
         raise CannotReflow(f"unknown shape {shape}")
     d = design.model_copy(deep=True)
     here = [r for r in d.rooms if r.level == level]
-    court = next((r for r in here if {"courtyard", "patio", "atrium"} & set(r.name.lower().replace("-", " ").split())), None) if shape == "courtyard" else None
+    notch = court_in_notch and shape == "U"
+    court = next((r for r in here if _is_court(r)), None) if (shape == "courtyard" or notch) else None
     others = [r for r in here if r is not court]
     if shape == "L":
         spots = _layout_l(others)
     elif shape == "U":
-        spots = _layout_u(others)
+        spots = _layout_u(others, notch)
     elif shape == "rows":
-        spots = _layout_rows(others)
+        spots = _layout_rows(others, fixed)
     else:
         spots = _layout_courtyard(others)
     for r in here:
         if r.id in spots:
             r.rect = spots[r.id]
-    if shape == "courtyard":
+    if shape == "courtyard" or notch:
         rect = spots["__court__"]
         if court is not None:
             court.rect, court.roofed = rect, False

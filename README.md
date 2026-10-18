@@ -129,7 +129,7 @@ current design go to Google using your own key. The model menu says where each m
 | Streaming | Server-Sent Events over POST |
 | Frontend | React 19, TypeScript 7, Vite 8, Tailwind CSS v4, Radix UI primitives, Lucide icons |
 | 3D | That Open (`@thatopen/components`, `@thatopen/fragments`) on three.js, with `web-ifc` pinned to 0.0.77 |
-| Tests | pytest (282 tests, no network), Vitest (15 tests), headless-browser checks of the main flows |
+| Tests | pytest (308 tests, no network), Vitest (15 tests), headless-browser checks of the main flows |
 
 ## Project layout
 
@@ -156,7 +156,7 @@ docs/              architecture, API, screenshots
 ## Tests
 
 ```bash
-cd backend  && .venv/Scripts/python -m pytest        # 282 tests on the practice model, no network
+cd backend  && .venv/Scripts/python -m pytest        # 308 tests on the practice model, no network
 cd frontend && npm test                                # 15 tests
 cd frontend && npx tsc --noEmit                        # type check
 cd design   && python contrast.py tokens.json          # WCAG contrast of every text/background pair (also tokens.dark.json)

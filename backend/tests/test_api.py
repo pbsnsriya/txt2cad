@@ -236,3 +236,16 @@ def test_a_furnished_house_with_finishes_runs_through_every_output(client):
     assert ("Furniture", "Sofa") in rows and ("Finishes", "Floor finish: oak") in rows and ("Finishes", "Wall finish: cream") in rows
     head = client.get(f"/api/projects/{pid}").json()["head"]
     assert not any("Furnish every room" in s for s in head["suggestions"])
+
+
+def test_a_finishing_step_that_crashes_is_skipped_and_the_run_still_saves(client, monkeypatch):
+    from app.domain import autofix
+
+    def boom(design, checklist):
+        raise RuntimeError("the layout code has a bug")
+
+    monkeypatch.setattr(autofix, "fit_sizes", boom)
+    monkeypatch.setattr(autofix, "reshape", boom)
+    pid = client.post("/api/projects", json={"name": "House"}).json()["id"]
+    evs = run(client, pid)
+    assert evs[-1]["stage"] == "finished"

@@ -62,6 +62,7 @@ def run_case(client, profile_id: str | None, case: dict) -> dict:
     if design is not None:
         result["rooms"] = [f"{r.name} ({r.kind}, {r.level}, {r.rect[2]:g}x{r.rect[3]:g})" for r in design.rooms]
         result["added_automatically"] = [n for n in head["notes"] if n.startswith("added a ")]
+        result["design"] = design.model_dump()                       # kept so a failed case can be looked at and run again by hand
     cks = score(design, case, saved=saved, notes=head["notes"] if saved else [], requirements=head["requirements"] if saved else [], base=base_design)
     result.update(verdict(cks))
     result["checks"] = cks

@@ -181,15 +181,20 @@ async def _run(inp: RunInput, emit) -> None:
                 design.notes.append(f"round {rnd + 1} was stopped early: {stream.limit_reason}")
             applied_total += stream.applied
             finishing: list[str] = []
+            before_edit = Design.model_validate_json(base["design_json"]) if (mode == "edit" and base) else None
+            stages = []
             if mode == "design":                                  # a new building only: an edit is never laid out again behind the person's back
-                design, laid = autofix.reshape(design, checklist)
-                design, placed = autofix.furnish_wanted(design, checklist)
-                finishing += laid + placed
-            if mode == "edit" and base:
-                design, kept = autofix.keep_untouched(design, Design.model_validate_json(base["design_json"]), inp.prompt)
-                finishing += kept
-            design, completed = autofix.complete(design)          # the doors, windows and stairs every building needs, when the model left them out
-            finishing += completed
+                stages += [lambda d: autofix.add_missing_rooms(d, checklist), lambda d: autofix.reshape(d, checklist), lambda d: autofix.furnish_wanted(d, checklist)]
+            stages.append(lambda d: autofix.fit_sizes(d, checklist))       # a stated room size or total area the plan misses, put right by stretching or scaling it
+            if before_edit is not None:
+                stages += [lambda d: autofix.keep_untouched(d, before_edit, inp.prompt), lambda d: autofix.keep_daylight(d, before_edit)]
+            stages.append(autofix.complete)                       # the doors, windows and stairs every building needs, when the model left them out
+            for stage in stages:
+                try:
+                    design, notes = stage(design)
+                    finishing += notes
+                except Exception:                                 # a finishing step must never lose the person's run: carry on with the design as it was
+                    log.exception("run %s: a finishing step failed and was skipped", inp.run_id)
             for text in finishing:
                 await emit("move", text[0].upper() + text[1:], index=-1, ok=True, phase="Finishing touches", why="every building needs this", kind="finishing", facts=facts(design), removed=[])
             if finishing:

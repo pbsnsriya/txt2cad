@@ -39,25 +39,27 @@ Add a case to `backend/evals/prompts.json` whenever a real request goes wrong; t
 One run each, Gemini 2.5 Flash, 2026-10-16. The model gives different answers on different runs: running the same cases again moved two or three of them from pass to fail or the reverse,
 so read these as a band of about three cases, and use `--repeat 3` before drawing a conclusion from a small change.
 
-| | Before the finishing pass | After it | After it, plus named furniture and shape examples (a different day's model speed) | Layout in code, wanted furniture, untouched rooms kept |
-| --- | --- | --- | --- | --- |
-| **Passed** | 21 of 47 | 33 of 47 | 30 of 47 | **42 of 47** |
-| Mean score | 0.887 | 0.936 | 0.874 | 0.986 |
-| Houses (10) | 3 | 6 | 6 | 9 |
-| Flats (5) | 1 | 3 | 4 | 3 |
-| Commercial (6) | 4 | 5 | 4 | 6 |
-| Stated sizes (6) | 2 | 5 | 5 | 6 |
-| Roofs (3) | 2 | 3 | 3 | 3 |
-| Interiors (4) | 3 | 3 | 3 | 4 |
-| Shapes (3) | 0 | 0 | 0 | 2 |
-| Not built yet (3) | 0 | 2 | 1 | 3 |
-| Vague (2) | 1 | 2 | 0 | 2 |
-| Edits (5) | 5 | 4 | 4 | 4 |
-| Median seconds | 28.9 | 22.2 | 31.0 | 31.5 |
+| | Before the finishing pass | After it | After it, plus named furniture and shape examples (a different day's model speed) | Layout in code, wanted furniture, untouched rooms kept | Missing rooms added, sizes fitted, U around a courtyard |
+| --- | --- | --- | --- | --- | --- |
+| **Passed** | 21 of 47 | 33 of 47 | 30 of 47 | **42 of 47** | **44 of 47** |
+| Mean score | 0.887 | 0.936 | 0.874 | 0.986 | 0.973 |
+| Houses (10) | 3 | 6 | 6 | 9 | 10 |
+| Flats (5) | 1 | 3 | 4 | 3 | 5 |
+| Commercial (6) | 4 | 5 | 4 | 6 | 4 |
+| Stated sizes (6) | 2 | 5 | 5 | 6 | 6 |
+| Roofs (3) | 2 | 3 | 3 | 3 | 3 |
+| Interiors (4) | 3 | 3 | 3 | 4 | 4 |
+| Shapes (3) | 0 | 0 | 0 | 2 | 3 |
+| Not built yet (3) | 0 | 2 | 1 | 3 | 3 |
+| Vague (2) | 1 | 2 | 0 | 2 | 2 |
+| Edits (5) | 5 | 4 | 4 | 4 | 4 |
+| Median seconds | 28.9 | 22.2 | 31.0 | 31.5 | 23.4 |
 
 The third run's drop was mostly the model, not the code: three cases never saved because the model took too long to answer, and one (a studio with a sofa, a double bed and a kitchen counter) was refused by the quality gate because the named pieces were counted as things not built. That bug is fixed; all four passed in the last run.
 
 The last column is the same 47 requests after three changes made from the earlier misses: a storey the model could not draw as an L, a U or a ring around a courtyard is laid out again in code (and rooms with no outside wall are put in two rows so each has a window); pieces the request names are placed if the model left them out; and an edit puts back a room it was not about. One run, so the same three-case band applies.
+
+The final column adds what was done about the five misses of the column before: a missing room the request counted (a second bathroom, a bedroom, a meeting room) is added beside the others; a stated room size or total area is made true by stretching or scaling the plan, so rooms keep touching; a U-shaped house around a courtyard puts the courtyard in the gap of the U; a room the model called Bedroom but left as kind "other" is a bedroom; a short outside wall takes a narrower window; and a finishing step that fails is skipped instead of losing the run. The last four full live runs, with fixes added between them, scored 42, 37, 40 and 44; the dips came from new layouts of the model's own making, which the next fix then handled, so one run is a sample and not a settled figure. The three misses in the last run were a meeting room that went missing in one run and not the next, a sales floor left unnamed as Other, and an edit run that did not save.
 
 What moved the numbers: most failures at first were rooms with no way in, no window or no stair, which the model was being asked to fix over and over. The finishing pass adds them in code. What is left
 is a model that leaves out a room that was asked for (a second bathroom, a bedroom), a stated total area missed by a wide margin, and an edit that resizes the room it was meant to leave alone.

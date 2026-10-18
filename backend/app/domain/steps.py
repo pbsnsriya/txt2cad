@@ -303,6 +303,20 @@ def _default_level(d: Design, level: str | int | None) -> str | None:
     return norm_level(level) or (d.levels[-1].id if d.levels else None)
 
 
+_KIND_WORDS = {"bedroom": "bedroom", "bathroom": "bathroom", "kitchen": "kitchen", "living": "living", "lounge": "living", "dining": "dining", "hall": "hall",
+               "hallway": "hall", "corridor": "hall", "office": "office", "study": "office", "garage": "garage", "utility": "utility", "storage": "storage", "store": "storage"}
+
+
+def kind_from_name(name: str, kind: str | None) -> str:
+    """The kind a room is when the model left it as 'other' but called it Bedroom 1 or Living Room."""
+    if kind and kind != "other":
+        return kind
+    for word in re.findall(r"[a-z]+", name.lower()):
+        if word in _KIND_WORDS:
+            return _KIND_WORDS[word]
+    return kind or "other"
+
+
 def _apply_room(d: Design, step: Step, keep: dict[str, Room] | None = None) -> None:
     lid = _default_level(d, step.level)
     if lid is None:
@@ -324,7 +338,7 @@ def _apply_room(d: Design, step: Step, keep: dict[str, Room] | None = None) -> N
     if rect is None and existing is None:
         raise StepError(f"room '{name}': 'rect' [x, y, width, depth] in metres is required for a new room")
     rid = existing.id if existing else _unique_id({r.id for r in d.rooms}, slug(name))
-    room = Room(id=rid, name=name, level=lid, kind=step.kind or (existing.kind if existing else "other"),
+    room = Room(id=rid, name=name, level=lid, kind=kind_from_name(name, step.kind or (existing.kind if existing else "other")),
                 rect=rect or existing.rect, roofed=step.roofed if step.roofed is not None else (existing.roofed if existing else True))
     _check_overlap(d, room)
     d.rooms = [r for r in d.rooms if r.id != rid] + [room]

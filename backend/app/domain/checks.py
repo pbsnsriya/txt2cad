@@ -64,7 +64,7 @@ def _matching_rooms(design: Design, keyword: str, level: str | None):
 
 def _footprint_polygon(design: Design):
     for lv in design.levels:
-        rooms = [r for r in design.rooms if r.level == lv.id]
+        rooms = [r for r in design.rooms if r.level == lv.id and r.roofed] or [r for r in design.rooms if r.level == lv.id]      # a court open to the sky is not part of the outline
         if rooms:
             return unary_union([box(r.rect[0], r.rect[1], r.rect[0] + r.rect[2], r.rect[1] + r.rect[3]) for r in rooms])
     return None
