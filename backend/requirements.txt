@@ -1,4 +1,4 @@
-fastapi>=0.115
+fastapi>=0.143.1
 uvicorn[standard]>=0.30
 pydantic>=2.7
 ifcopenshell>=0.8
