@@ -1,0 +1,3 @@
+#!/bin/sh
+# Turn it on once per clone:  git config core.hooksPath .githooks
+exec python scripts/check_commit_message.py "$1"

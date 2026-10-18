@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_call:                 # the release workflow runs the same checks on a tagged commit
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -14,6 +15,21 @@ permissions:
   contents: read
 
 jobs:
+  commits:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Conventional Commits (see CONTRIBUTING.md)
+        run: python scripts/check_commit_message.py --range "origin/${{ github.base_ref }}..HEAD"
+
   backend:
     name: Backend tests
     runs-on: ubuntu-latest

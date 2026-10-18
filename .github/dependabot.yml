@@ -2,20 +2,31 @@ version: 2
 updates:
   - package-ecosystem: pip
     directory: /backend
+    commit-message:
+      prefix: build
+      include: scope
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
   - package-ecosystem: npm
     directory: /frontend
+    commit-message:
+      prefix: build
+      include: scope
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
   - package-ecosystem: npm
     directory: /e2e
+    commit-message:
+      prefix: build
+      include: scope
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
   - package-ecosystem: github-actions
     directory: /
+    commit-message:
+      prefix: ci
     schedule:
       interval: monthly
