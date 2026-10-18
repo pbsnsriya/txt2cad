@@ -8,6 +8,8 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-18
+
 ### Added
 
 - `GET /api/health` and the OpenAPI document report the application version, read from the `VERSION` file.
@@ -110,7 +112,8 @@ The first releases below were written afterwards, from the history, and tagged o
 - A design check and a quantity take-off.
 - A React frontend with a Home screen, a workspace, a trace of the run, a version list and the analysis tabs.
 
-[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.4.0...v0.5.0
