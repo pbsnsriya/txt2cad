@@ -2,7 +2,7 @@ fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
 ifcopenshell>=0.8
-shapely>=2.0
+shapely>=2.2.0
 ezdxf>=1.3
 pillow                      # needed by ezdxf's drawing add-on, which writes the SVG plan
 httpx>=0.27
