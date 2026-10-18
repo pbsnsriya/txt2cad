@@ -101,4 +101,6 @@ git push && git push origin v0.7.0           # the tag starts the release workfl
 The release workflow runs the whole test suite again on the tagged commit, checks that the tag matches the `VERSION` file, and then publishes a GitHub Release whose text is the changelog section.
 Tags are annotated and named `vMAJOR.MINOR.PATCH`.
 
+Push one release tag at a time: GitHub starts no workflow when more than three tags arrive together. If a run did not start, open Actions, then Release, then Run workflow, and enter the tag.
+
 To roll back, deploy the previous tag. To withdraw a release, publish a new patch version with the fix; do not delete or move tags.
