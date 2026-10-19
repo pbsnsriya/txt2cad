@@ -198,3 +198,11 @@ reader on every prefix of a real reply.
 - [docs/evaluation.md](docs/evaluation.md): the 47-case evaluation set, how it is scored, and the latest results
 - [docs/beta.md](docs/beta.md): a plan for finding out whether people want this
 - [design/components.md](design/components.md): component specifications
+
+## License
+
+txt2cad is free software, licensed under the [GNU General Public License v3.0](LICENSE) (`GPL-3.0-only`). Copyright (C) 2026 pbsnsriya.
+You may use, study, share and change it. If you distribute a modified version, you must do so under the same licence and make its source available.
+
+The libraries it uses keep their own licences, all compatible with the GPL: IfcOpenShell (LGPL-3.0-or-later), web-ifc (MPL-2.0), and ezdxf, FastAPI, Shapely, Pillow, three.js, That Open Components, React and Radix UI (MIT, BSD or similar).
+The Gemini model, if you choose it, is a service with its own terms; see [docs/privacy.md](docs/privacy.md).

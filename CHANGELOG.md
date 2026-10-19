@@ -8,6 +8,10 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+### Added
+
+- A licence: txt2cad is released under the GNU General Public License v3.0 (`LICENSE`, and the `license` field of both `package.json` files).
+
 ## [0.7.0] - 2026-10-18
 
 ### Added
