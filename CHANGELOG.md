@@ -10,6 +10,7 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ### Added
 
+- Sizes by hand: a Sizes tab lists every room with its width and depth. Type a new size, or a new footprint for the whole building, and the plan is stretched to fit and saved as a new version. No model is called, so it is instant and free. `POST /api/projects/{id}/sizes`.
 - A licence: txt2cad is released under the GNU General Public License v3.0 (`LICENSE`, and the `license` field of both `package.json` files).
 
 ## [0.7.0] - 2026-10-18

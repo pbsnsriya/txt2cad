@@ -81,6 +81,7 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
 - **What it builds** (`domain/envelope.py`). One list of supported, partial and unsupported things, served by `GET /api/capabilities`, shown on the Home screen, used for the warning under the
   message box and rendered to `docs/supported.md` (a test keeps them equal).
 - **Evaluation** (`backend/evals`). 47 cases scored independently of the model's own checklist; `python -m evals.run --live` runs them against Gemini. See `docs/evaluation.md`.
+- **Sizes by hand** (`domain/direct.py`, `POST /sizes`). A room's width or depth is changed by stretching the whole plan along a line through that room (`resize.stretch`): everything beyond the line moves, rooms the line crosses grow, so rooms that touch still touch. The building's footprint is scaled evenly. Furniture in a changed room is laid out again, doors and windows that no longer fit are dropped and the finishing pass puts them back. Room ids stay, so IFC GlobalIds stay. No model is called.
 - **Rearranging a storey** keeps the rooms that fit and reports each one that does not, instead of rejecting the whole storey.
 - **Limits and the gate** (`pipeline/run.py`, `pipeline/gate.py`). A round is cut off (the request carries a stop flag the provider honours) when it passes 140 steps, 25 rejections,
   150 s, or the run passes 330 s; a round that fixes nothing ends the repair loop. After the last round a gate refuses the result when none of the checkable requests is met, a

@@ -181,6 +181,16 @@ Every spec fails on a console error or a 5xx response, and the screens are scann
 The live checks (`python -m evals.run --live`, `E2E_LIVE=1`) are not part of CI: they need a real key and cost money. Dependabot opens weekly update pull requests for the Python and npm packages and a monthly one for the workflow actions.
 To make the checks block a merge, turn on branch protection for `main` in the repository settings and require the three jobs.
 
+## F20 Sizes by hand
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F20-H1 | happy | Sizes tab, type a wider width for a room, Apply | A new version (mode ops, "by hand"); the table starts again from it; the history says "resized" | e2e |
+| F20-H2 | happy | Type a new building width, Apply to the building | A new version whose summary names the building | e2e |
+| F20-E1 | edge | Type 0.5 | The reason is shown and Apply stays disabled; clearing the box clears the reason | e2e |
+| F20-E2 | edge | Another tab saves a version first, then Apply | "no longer the latest"; nothing extra is saved | e2e |
+| F20-U | unit | Stretching, limits, finishes, furniture, GlobalIds, 409/422/404 | See `test_direct.py` and `sizes.test.ts` | pytest, Vitest |
+
 ## Checked by hand
 
 - Visual glitches in the 3D view on real graphics hardware (the automated runs use a software renderer).

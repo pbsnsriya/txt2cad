@@ -19,6 +19,7 @@ All routes are under `/api`, JSON unless noted. The server accepts requests from
 | `GET /projects/{id}/versions/{n}/export?format=` | One of `ifc, dxf, svg, spec_json, design_json`. |
 | `GET /projects/{id}/versions/{n}/drawing` | The plans as an inline SVG (the Plans tab). |
 | `GET /projects/{id}/versions/{n}/analysis` | The design check and the quantity take-off. Check clauses carry IFC GlobalIds so a viewer can highlight them. |
+| `POST /projects/{id}/sizes` | Change room sizes (`rooms`: `[{room, width, depth}]`) or the whole footprint (`building_width`, `building_depth`) by hand, with no model. `base_version` must be the latest version, or the answer is 409. Saved as the next version with mode `ops`; 422 says why a size cannot be done. |
 | `POST /projects/{id}/revert/{n}` | Append a copy of version *n* as a new version. |
 
 ## The event stream
