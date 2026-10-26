@@ -19,11 +19,13 @@ from ..db import repo
 from ..version import __version__
 from ..analysis.quantities import quantities
 from ..analysis.review import review
-from ..domain import envelope
+from ..domain import checks, direct, envelope
+from ..domain.derive import DesignError, derive
 from ..domain.design import Design
 from ..domain.spec import BuildingSpec
 from ..domain.suggest import suggest
 from ..export.dxf import dxf_text
+from ..ifc.compile import compile_ifc
 from ..export.svg import svg_text
 from ..llm.base import LLM
 from ..llm.mock import MockLLM
@@ -241,6 +243,56 @@ def revert(pid: str, n: int) -> dict[str, Any]:
                                   design=json.loads(old["design_json"]), spec=json.loads(old["spec_json"]), guids=json.loads(old["guids_json"]),
                                   approach=old["approach"], notes=json.loads(old["notes_json"]), summary=f"Restored version {n}.",
                                   ifc_bytes=(config.DATA_DIR / old["ifc_path"]).read_bytes(), requirements=[])
+    except repo.Conflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return _public_version(new)  # type: ignore[return-value]
+
+
+class RoomSizeBody(BaseModel):
+    room: str = Field(max_length=80)                      # the room id
+    width: float | None = Field(None, gt=0, le=1000)      # east-west, metres
+    depth: float | None = Field(None, gt=0, le=1000)      # north-south, metres
+
+
+class SizesBody(BaseModel):
+    base_version: int
+    rooms: list[RoomSizeBody] = Field(default_factory=list, max_length=60)
+    building_width: float | None = Field(None, gt=0, le=1000)
+    building_depth: float | None = Field(None, gt=0, le=1000)
+
+
+@router.post("/projects/{pid}/sizes", status_code=201)
+def set_sizes(pid: str, body: SizesBody) -> dict[str, Any]:
+    """Change room sizes, or the footprint of the whole building, by hand: no model is called, so it costs nothing and is immediate. Saved as the next version."""
+    try:
+        head = repo.head_version(OWNER, pid)
+    except repo.NotFound as exc:
+        raise _nf(exc) from exc
+    if head is None:
+        raise HTTPException(409, "there is nothing to resize yet; build something first")
+    if head["number"] != body.base_version:
+        raise HTTPException(409, f"version {body.base_version} is no longer the latest (it is {head['number']}); open the latest version first")
+    building = body.building_width is not None or body.building_depth is not None
+    if building == bool(body.rooms):
+        raise HTTPException(422, "change either some rooms or the whole building in one go")
+    design = Design.model_validate_json(head["design_json"])
+    try:
+        if building:
+            new_design, notes = direct.resize_building(design, body.building_width, body.building_depth)
+        else:
+            new_design, notes = direct.resize_rooms(design, [direct.RoomSize(r.room, r.width, r.depth) for r in body.rooms])
+        spec = derive(new_design)
+    except (direct.SizeError, DesignError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    model, used = compile_ifc(spec, new_design.model_dump_json(), json.loads(head["guids_json"]))
+    asked = [{"kind": r["kind"], "text": r["text"], "supported": bool(r["supported"]), "params": json.loads(r["params_json"])} for r in repo.version_requirements(OWNER, head["id"])]
+    results = checks.check(new_design, asked)
+    number = head["number"] + 1
+    summary = f"Version {number}: sizes changed by hand, with no model. " + "; ".join(notes[:4]).capitalize() + ("." if notes else "")
+    try:
+        new = repo.insert_version(OWNER, pid, head["number"], mode="ops", prompt="Sizes changed by hand", llm_label="", design=new_design.model_dump(), spec=spec.model_dump(), guids=used,
+                                  approach="", notes=[*new_design.notes, *notes, *[f"unmet: {r['text']}" for r in results if r["status"] == "unmet"]], summary=summary,
+                                  ifc_bytes=model.to_string().encode("utf-8"), requirements=results)
     except repo.Conflict as exc:
         raise HTTPException(409, str(exc)) from exc
     return _public_version(new)  # type: ignore[return-value]
