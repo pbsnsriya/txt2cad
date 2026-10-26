@@ -8,6 +8,10 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+### Added
+
+- A shareable page: "Shareable page (.html)" in the Export menu is one file with the model, a viewer and its styles inside, for opening offline in any browser. Turn, move and zoom the model, perspective or orthographic, top, side and 3D views, floors one at a time, layers (roof, furniture, doors and windows), "Look inside" with room names, click an element to see what it is, keyboard and touch control, light and dark themes, and Save picture. The file asks nothing of the network and does not contain your request. `GET /api/projects/{id}/versions/{n}/export?format=html`.
+
 ## [0.8.0] - 2026-10-26
 
 ### Added

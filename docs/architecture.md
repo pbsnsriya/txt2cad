@@ -94,6 +94,15 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
   produces furniture and thin covering skins (the wall skins have holes where the openings are); IFC writes them as IfcFurniture and IfcCovering, DXF as footprints on A-FURN.
   Ceiling lights hang from the ceiling and may be over other furniture; `furnish` adds one for about every 14 m2 of a room. A new door or stair moves furniture out of its way; a door kind "opening" is an archway, and any door wider than 2 m is taken to be one.
 
+## The shareable page
+
+`GET .../export?format=html` returns one HTML file (`export/share.py`, `export/share_page.html`). The model is read back from the saved IFC with `ifcopenshell.geom`, so the page shows what the IFC holds:
+every element becomes coloured triangle parts (with transparency for glass), with its category, storey and name; rooms become labels at head height. The data is JSON, gzipped and base64-encoded, with a fixed header so
+the same version always gives the same bytes. The viewer is `frontend/src/share` (three.js with OrbitControls, a perspective and an orthographic camera, preset views, floors, categories, picking, room names that
+hide behind opaque parts, keyboard control), built by `npm run build:share` into `backend/app/export/assets/` (one script and one stylesheet, committed) and inlined into the page. CI rebuilds it and fails if the
+committed files differ from the source. The page carries a Content-Security-Policy with `connect-src 'none'` and `default-src 'none'`, so the browser itself refuses to send or fetch anything. Text that people wrote
+(project name, summary) is HTML-escaped in the page and shown with `textContent` by the viewer; the request text is not included.
+
 ## Geometry rules
 
 - Rectangle edges are **wall centrelines**. Along each room edge, the stretch shared with a neighbour is one partition (owned by the room

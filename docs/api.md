@@ -16,7 +16,7 @@ All routes are under `/api`, JSON unless noted. The server accepts requests from
 | `GET /files/previews/{project}/{run}/{n}.ifc` | A preview IFC announced by a `preview` event. Served by validated ids; old ones are pruned. |
 | `GET /projects/{id}/versions/{n}` | One version's record, with `suggestions`: up to three follow-up requests worth trying, taken from the design. |
 | `GET /projects/{id}/versions/{n}/ifc` | The IFC file. |
-| `GET /projects/{id}/versions/{n}/export?format=` | One of `ifc, dxf, svg, spec_json, design_json`. |
+| `GET /projects/{id}/versions/{n}/export?format=` | One of `ifc, dxf, svg, html, spec_json, design_json`. `html` is the shareable page: one file with the model, a viewer and its styles inside. |
 | `GET /projects/{id}/versions/{n}/drawing` | The plans as an inline SVG (the Plans tab). |
 | `GET /projects/{id}/versions/{n}/analysis` | The design check and the quantity take-off. Check clauses carry IFC GlobalIds so a viewer can highlight them. |
 | `POST /projects/{id}/sizes` | Change room sizes (`rooms`: `[{room, width, depth}]`) or the whole footprint (`building_width`, `building_depth`) by hand, with no model. `base_version` must be the latest version, or the answer is 409. Saved as the next version with mode `ops`; 422 says why a size cannot be done. |

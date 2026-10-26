@@ -32,6 +32,12 @@ The destination is the address configured for the model (for Gemini, `generative
 you pick. The request goes with **your own key**, so your agreement with Google applies. At the time of writing Google's pricing page says content sent
 on the free tier may be used to improve its products and content sent on the paid tier is not. Check their current terms before you rely on that.
 
+## The shareable page
+
+The "Shareable page (.html)" export is one file that holds the model, the viewer and its styles. It contains the project name, the version number and date, the summary of what was built (which lists the room names) and the
+geometry. It does **not** contain the request you typed. Nothing in it is fetched or sent: a Content-Security-Policy inside the file (`connect-src 'none'`) makes the browser refuse any network request, so you can check this
+yourself by opening the file with the Network tab of the browser's developer tools open. Whoever has the file has the model, so send it only to people who should see it.
+
 ## Your key
 
 The key lives in the backend's environment (`GEMINI_API_KEY`, for example in `backend/.env`, which is ignored by git). It is not stored in the database, not

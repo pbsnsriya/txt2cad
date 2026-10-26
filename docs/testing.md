@@ -191,6 +191,19 @@ To make the checks block a merge, turn on branch protection for `main` in the re
 | F20-E2 | edge | Another tab saves a version first, then Apply | "no longer the latest"; nothing extra is saved | e2e |
 | F20-U | unit | Stretching, limits, finishes, furniture, GlobalIds, 409/422/404 | See `test_direct.py` and `sizes.test.ts` | pytest, Vitest |
 
+## F21 Shareable page
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F21-H1 | happy | Export the shareable page, save it, open the file | The model is drawn offline; no request leaves the file; a Content-Security-Policy forbids them; nothing is logged as an error | e2e |
+| F21-H2 | happy | Drag, scroll, right-drag, press the view buttons, switch to orthographic and back, use the keyboard | The camera moves as asked, turning does not zoom, views end where they should (top is straight above, east is level) | e2e |
+| F21-H3 | happy | Switch floors, the roof, furniture and the ground | The visible count follows; room names show only for rooms that can be seen | e2e |
+| F21-H4 | happy | Hover, click and double-click an element; Esc; Save picture | It says what the element is; double-click flies to it; the picture is a real PNG | e2e |
+| F21-H5 | happy | Controls help, dark theme, a phone-width screen | The dialog opens and closes; the theme changes; the options sit behind a button; no sideways scroll | e2e |
+| F21-H6 | happy | Look inside | The roof goes, the camera tilts down, room names appear; pressed again, it all comes back | e2e |
+| F21-E1 | edge | Automatic accessibility check; a file whose data is cut out | No violations; a clear message in an alert | e2e |
+| F21-U | unit | Camera maths and visibility rules; the page builder, data, escaping, determinism and privacy | See `logic.test.ts` and `test_share.py` | Vitest, pytest |
+
 ## Checked by hand
 
 - Visual glitches in the 3D view on real graphics hardware (the automated runs use a software renderer).

@@ -68,6 +68,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: The viewer inside the shareable page is built from its source
+        run: |
+          npm run build:share
+          git diff --exit-code -- ../backend/app/export/assets || { echo "backend/app/export/assets is out of date: run 'npm run build:share' in frontend and commit the result"; exit 1; }
       - run: npm audit --audit-level=high
 
   e2e:
