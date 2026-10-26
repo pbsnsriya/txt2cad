@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, ChevronDown, Download, FileText, FolderOpen, LayoutGrid, MessageSquare, Moon, Receipt, ShieldCheck, Sun } from 'lucide-react';
+import { Box, ChevronDown, Download, FileText, FolderOpen, LayoutGrid, MessageSquare, Moon, Receipt, Ruler, ShieldCheck, Sun } from 'lucide-react';
 import { ApiError, api, runPrompt, type Analysis, type Capabilities, type Profile, type ProjectDetail, type ProjectRow } from '../api/client';
 import { emptyRun, reduceRun, startRun, type RunView } from '../state/run';
 import { Badge } from '../ui/Badge';
@@ -9,6 +9,7 @@ import { Menu, TooltipProvider, type MenuEntry } from '../ui/Menu';
 import { ConfirmDialog, Resizer } from '../ui/Overlays';
 import { EmptyState, Skeleton } from '../ui/Surface';
 import { Tabs } from '../ui/Tabs';
+import { SizesTab, type SizeChange } from './SizesTab';
 import { Trace, VersionList } from './Assistant';
 import { ViewerPane, type ViewerHandle } from './ViewerPane';
 import { DrawingsTab } from './DrawingsTab';
@@ -215,6 +216,21 @@ export function App() {
     a.remove();
   }
 
+  /** Change sizes by hand: no model is called. Returns an error in words, or null when a new version was saved. */
+  async function applySizes(change: SizeChange): Promise<string | null> {
+    if (!detail?.head) return 'Build something first.';
+    setBusy(true);
+    try {
+      await api.resize(detail.project.id, { base_version: detail.head.number, ...change });
+      await openProject(detail.project.id);
+      return null;
+    } catch (e) {
+      return (e as Error).message;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function restore(n: number): Promise<void> {
     if (!detail) return;
     setBusy(true);
@@ -279,6 +295,8 @@ export function App() {
                     <ViewerPane pictureName={`${(detail?.project.name ?? 'txt2cad').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'txt2cad'}-v${viewing || 0}`} badge={badge} empty={!viewing && !building} building={building} theme={theme} onReady={onViewer} follow={follow} onFollow={setFollow} selected={selected} onPick={setSelected} />) },
                   { id: 'dr', label: 'Plans', icon: <FileText className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
                     content: <DrawingsTab url={detail && viewing ? `${api.drawingUrl(detail.project.id, viewing)}?v=${detail.head?.id ?? ''}` : null} onDownload={(f) => download(viewing, f)} /> },
+                  { id: 'sz', label: 'Sizes', icon: <Ruler className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
+                    content: <SizesTab head={detail?.head ?? null} busy={busy || building} onApply={applySizes} /> },
                   { id: 'cr', label: 'Design check', icon: <ShieldCheck className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',
                     content: <ReviewTab analysis={analysis} loading={analysing} onShow={(g) => { setTab('3d'); setTimeout(() => void viewer.current?.highlight(g), 150); }} /> },
                   { id: 'cc', label: 'Quantities', icon: <Receipt className="size-4" aria-hidden />, disabledReason: viewing ? undefined : 'Build something first',

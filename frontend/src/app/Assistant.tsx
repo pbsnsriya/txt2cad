@@ -66,7 +66,7 @@ export function VersionList({ detail, viewing, onOpen, onRestore, onDownload, bu
       {versions.map((v) => (
         <Card key={v.number} variant="flat" selected={v.number === viewing} className="flex flex-col gap-2 p-3">
           <div className="flex items-center justify-between gap-2">
-            <Badge tone={v.number === detail.versions.length ? 'info' : 'neutral'}>v{v.number}{v.mode === 'revert' ? ' restored' : ''}</Badge>
+            <Badge tone={v.number === detail.versions.length ? 'info' : 'neutral'}>v{v.number}{v.mode === 'revert' ? ' restored' : v.mode === 'ops' ? ' resized' : ''}</Badge>
             <div className="flex gap-1">
               <Button size="sm" variant="ghost" onClick={() => onOpen(v.number)} disabled={v.number === viewing}>Open</Button>
               <Button size="sm" variant="ghost" icon={<Download className="size-3.5" aria-hidden />} onClick={() => onDownload(v.number, 'ifc')}>IFC</Button>

@@ -59,6 +59,8 @@ export const api = {
   project: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
   renameProject: (id: string, name: string) => request<ProjectRow>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  resize: (id: string, body: { base_version: number; rooms?: { room: string; width?: number; depth?: number }[]; building_width?: number; building_depth?: number }) =>
+    request<VersionInfo>(`/api/projects/${id}/sizes`, { method: 'POST', body: JSON.stringify(body) }),
   revert: (id: string, n: number) => request<VersionInfo>(`/api/projects/${id}/revert/${n}`, { method: 'POST' }),
   ifcUrl: (id: string, n: number) => `${API_BASE}/api/projects/${id}/versions/${n}/ifc`,
   exportUrl: (id: string, n: number, format: string) => `${API_BASE}/api/projects/${id}/versions/${n}/export?format=${format}`,
