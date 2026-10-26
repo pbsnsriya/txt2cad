@@ -1,0 +1,94 @@
+/* The shareable model page. Colours are tokens on :root; the dark set is used when the person's system asks for it or the Theme button is pressed. */
+:root {
+  --bg-1: #f2f5f9; --bg-2: #dde4ee; --surface: #ffffff; --surface-2: #f3f5f8; --ink: #151a22; --muted: #5a6577; --line: #d3dae4;
+  --accent: #2354d6; --accent-ink: #ffffff; --focus: #1a47c0; --label-bg: rgba(255, 255, 255, 0.88); --shadow: 0 6px 24px rgba(20, 30, 50, 0.14);
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  --bg-1: #1a1f27; --bg-2: #0f1319; --surface: #1d232d; --surface-2: #262d39; --ink: #eef1f6; --muted: #a6b0c0; --line: #343d4b;
+  --accent: #7ea3ff; --accent-ink: #0b1220; --focus: #a9c1ff; --label-bg: rgba(29, 35, 45, 0.9); --shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex; flex-direction: column; font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: var(--ink);
+  background: radial-gradient(120% 120% at 30% 10%, var(--bg-1), var(--bg-2)); overflow: hidden;
+}
+[hidden] { display: none !important; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); z-index: 4; }
+.titles { min-width: 0; }
+.titles h1 { margin: 0; font-size: 1.05rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titles p { margin: 0; color: var(--muted); font-size: 0.82rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.btn, .seg button, .chips button {
+  min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); white-space: nowrap;
+}
+.btn:hover, .seg button:hover, .chips button:hover { background: var(--surface-2); }
+.btn[aria-pressed='true'], .seg button[aria-pressed='true'], .chips button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+.stage { position: relative; flex: 1; min-height: 0; }
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline-offset: -4px; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.label {
+  position: absolute; left: 0; top: 0; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; background: var(--label-bg); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); white-space: nowrap; will-change: transform;
+}
+
+.panel {
+  position: absolute; top: 12px; right: 12px; width: 250px; max-height: calc(100% - 24px); overflow-y: auto; padding: 12px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow); z-index: 3;
+}
+.panel section + section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.panel h2 { margin: 0 0 6px; font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button, .seg button { min-height: 34px; padding: 0 10px; font-size: 0.9rem; }
+#toggles label { display: flex; align-items: center; gap: 8px; min-height: 30px; font-size: 0.92rem; cursor: pointer; }
+#toggles input { width: 17px; height: 17px; accent-color: var(--accent); }
+#btn-options { display: none; }
+.btn.wide { width: 100%; margin-bottom: 6px; }
+.note { margin: 6px 0 0; font-size: 0.8rem; color: var(--muted); }
+
+.info {
+  position: absolute; left: 12px; bottom: 12px; max-width: min(520px, calc(100% - 24px)); padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow); font-size: 0.92rem; z-index: 3;
+}
+.info[data-pinned='true'] { border-color: var(--accent); }
+.hint { position: absolute; left: 12px; top: 12px; max-width: 320px; padding: 6px 10px; border-radius: 8px; background: var(--label-bg); border: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); z-index: 2; pointer-events: none; }
+
+.dialog {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 32px)); padding: 18px 20px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); z-index: 5;
+}
+.dialog h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.dialog dl { margin: 0 0 12px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+.dialog dt { font-weight: 650; white-space: nowrap; }
+.dialog dd { margin: 0; color: var(--muted); }
+kbd { padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--surface-2); font: 0.85em ui-monospace, monospace; }
+
+#loading { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; font-size: 1.05rem; color: var(--muted); z-index: 6; background: transparent; }
+#loading[role='alert'] { color: #b3261e; }
+:root[data-theme='dark'] #loading[role='alert'] { color: #ffb4ab; }
+
+.foot { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; padding: 8px 16px; font-size: 0.8rem; color: var(--muted); background: var(--surface); border-top: 1px solid var(--line); z-index: 4; }
+.foot p { margin: 0; }
+
+@media (max-width: 720px) {
+  .bar { padding: 8px 10px; }
+  .actions .btn { padding: 0 9px; }
+  #btn-options { display: inline-block; }
+  .panel { top: auto; right: 8px; left: 8px; bottom: 8px; width: auto; max-height: 52%; display: none; }
+  .panel.open { display: block; }
+  .info { bottom: 56px; }
+  .hint { display: none; }
+  .foot p:last-child { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media print { .panel, .actions, .hint { display: none !important; } body { overflow: visible; } }
