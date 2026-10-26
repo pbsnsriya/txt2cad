@@ -37,5 +37,5 @@ test('F05-E2 only formats this app really writes are offered', async ({ page }) 
   await page.getByRole('button', { name: 'Export' }).click();
   const items = await page.getByRole('menuitem').allInnerTexts();
   expect(items.join(' ')).not.toMatch(/STEP|DWG/);
-  expect(items).toHaveLength(5);
+  expect(items).toHaveLength(6);                                                       // IFC, shareable page, DXF, SVG and the two JSON files
 });

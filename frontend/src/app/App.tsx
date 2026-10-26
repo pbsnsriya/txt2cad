@@ -258,6 +258,7 @@ export function App() {
   const exportEntries: MenuEntry[] = [
     { id: 'ifc', title: 'BIM file (.ifc)', description: 'IFC4, opens in Revit, Archicad, Navisworks', onSelect: () => download(viewing, 'ifc') },
     { id: 'dxf', title: 'Floor plans (.dxf)', description: 'one drawing per storey, named layers, metres', onSelect: () => download(viewing, 'dxf') },
+    { id: 'html', title: 'Shareable page (.html)', description: 'one file to turn, zoom and look around the model in any browser, offline', onSelect: () => download(viewing, 'html') },
     { id: 'svg', title: 'Floor plans (.svg)', description: 'the same plans as a picture', onSelect: () => download(viewing, 'svg') },
     { id: 'spec', title: 'Geometry data (.json)', description: 'every element the files are built from', onSelect: () => download(viewing, 'spec_json') },
     { id: 'design', title: 'Design data (.json)', description: 'rooms, doors and windows as designed', onSelect: () => download(viewing, 'design_json') },

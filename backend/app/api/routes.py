@@ -26,6 +26,7 @@ from ..domain.spec import BuildingSpec
 from ..domain.suggest import suggest
 from ..export.dxf import dxf_text
 from ..ifc.compile import compile_ifc
+from ..export.share import share_html
 from ..export.svg import svg_text
 from ..llm.base import LLM
 from ..llm.mock import MockLLM
@@ -207,7 +208,7 @@ def version_ifc(pid: str, n: int) -> FileResponse:
     return FileResponse(config.DATA_DIR / v["ifc_path"], media_type="application/octet-stream", filename=f"v{n}.ifc")
 
 
-EXPORT_FORMATS = {"ifc", "dxf", "svg", "spec_json", "design_json"}
+EXPORT_FORMATS = {"ifc", "dxf", "svg", "html", "spec_json", "design_json"}
 
 
 @router.get("/projects/{pid}/versions/{n}/export")
@@ -227,6 +228,10 @@ def export(pid: str, n: int, format: str = Query(...)) -> Response:
     if format == "svg":
         return Response(svg_text(BuildingSpec.model_validate_json(v["spec_json"])), media_type="image/svg+xml",
                         headers={"Content-Disposition": f'attachment; filename="{stem}.svg"'})
+    if format == "html":
+        name = repo.get_project(OWNER, pid)["name"]
+        page = share_html(config.DATA_DIR / v["ifc_path"], title=name, version=n, created=v["created_at"], summary=v["summary"], app_version=__version__)
+        return Response(page, media_type="text/html; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{stem}.html"'})
     data = v["spec_json"] if format == "spec_json" else v["design_json"]
     return JSONResponse(json.loads(data), headers={"Content-Disposition": f'attachment; filename="{stem}-{format}.json"'})
 

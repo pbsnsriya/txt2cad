@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob: data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="generator" content="txt2cad __APP_VERSION__">
+<meta name="description" content="__DESCRIPTION__">
+<title>__TITLE__ · 3D model</title>
+<style>
+__STYLE__
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="titles"><h1 id="title">__TITLE__</h1><p id="meta">__META__</p></div>
+  <div class="actions">
+    <button type="button" class="btn" id="btn-reset">Reset view</button>
+    <button type="button" class="btn" id="btn-options" aria-expanded="false" aria-controls="panel">Options</button>
+    <button type="button" class="btn" id="btn-picture">Save picture</button>
+    <button type="button" class="btn" id="btn-full">Full screen</button>
+    <button type="button" class="btn" id="btn-theme" aria-pressed="false">Dark</button>
+    <button type="button" class="btn" id="btn-help" aria-expanded="false" aria-controls="help">Controls</button>
+  </div>
+</header>
+<main class="stage" id="stage">
+  <canvas id="scene" tabindex="0" role="img" aria-label="3D model of __TITLE__. Drag to turn it, scroll to zoom, right-drag to move it. With the keyboard: arrow keys turn it, plus and minus zoom, 1 to 6 choose a view, P switches between perspective and orthographic."></canvas>
+  <div id="labels" aria-hidden="true"></div>
+  <p class="hint">Drag to turn · scroll to zoom · right-drag to move</p>
+  <aside class="panel" id="panel" aria-label="View options">
+    <section aria-labelledby="h-camera"><h2 id="h-camera">Camera</h2>
+      <div class="seg"><button type="button" id="proj-perspective" aria-pressed="true">Perspective</button><button type="button" id="proj-orthographic" aria-pressed="false">Orthographic</button></div>
+    </section>
+    <section aria-labelledby="h-views"><h2 id="h-views">View from</h2><div class="seg" id="views"></div></section>
+    <section id="floors-section" aria-labelledby="h-floors"><h2 id="h-floors">Floors</h2><div class="chips" id="floors"></div></section>
+    <section aria-labelledby="h-show"><h2 id="h-show">Show</h2><button type="button" class="btn wide" id="btn-inside" aria-pressed="false">Look inside</button><div id="toggles"></div><p class="note">Looking inside takes the roof off and shows the room names.</p></section>
+  </aside>
+  <div class="info" id="info" role="status" aria-live="polite" hidden></div>
+  <div class="dialog" id="help" role="dialog" aria-modal="false" aria-labelledby="help-title" hidden>
+    <h2 id="help-title">Moving around the model</h2>
+    <dl>
+      <dt>Turn</dt><dd>Drag with the left button, or one finger. Arrow keys when the model is selected.</dd>
+      <dt>Move</dt><dd>Drag with the right button, or hold <kbd>Shift</kbd> and drag, or use two fingers.</dd>
+      <dt>Zoom</dt><dd>Scroll, pinch, or <kbd>+</kbd> and <kbd>-</kbd>.</dd>
+      <dt>Look at one thing</dt><dd>Double-click an element to fly to it. Click once to see what it is; <kbd>Esc</kbd> clears it.</dd>
+      <dt>Views</dt><dd><kbd>1</kbd> to <kbd>6</kbd> for 3D, top, south, east, north, west. <kbd>Home</kbd> or <kbd>0</kbd> goes back to the first view. <kbd>P</kbd> switches perspective and orthographic.</dd>
+    </dl>
+    <button type="button" class="btn" id="help-close">Close</button>
+  </div>
+  <div id="loading" role="status">Loading the model…<noscript> This page needs JavaScript to show the 3D model.</noscript></div>
+</main>
+<footer class="foot">
+  <p>__SUMMARY__</p>
+  <p>Made with txt2cad __APP_VERSION__. This file works offline; nothing in it is sent anywhere.</p>
+</footer>
+<script type="text/plain" id="model-data">__DATA__</script>
+<script>
+__SCRIPT__
+</script>
+</body>
+</html>
