@@ -8,6 +8,8 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-26
+
 ### Added
 
 - Sizes by hand: a Sizes tab lists every room with its width and depth. Type a new size, or a new footprint for the whole building, and the plan is stretched to fit and saved as a new version. No model is called, so it is instant and free. `POST /api/projects/{id}/sizes`.
@@ -117,7 +119,8 @@ The first releases below were written afterwards, from the history, and tagged o
 - A design check and a quantity take-off.
 - A React frontend with a Home screen, a workspace, a trace of the run, a version list and the analysis tabs.
 
-[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.5.0...v0.6.0
