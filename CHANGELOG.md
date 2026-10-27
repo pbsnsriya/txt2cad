@@ -8,6 +8,8 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-27
+
 ### Added
 
 - An MCP server (`python backend/run_mcp.py`): Claude Code, Cursor and other agents can build a building from a sentence, change it, change sizes by hand, inspect it, restore an earlier version and export IFC, DXF, SVG, the shareable page or JSON, using the same projects as the app. Nine tools; only `build` reaches the model, and no tool deletes anything. See `docs/mcp.md`.
@@ -133,7 +135,8 @@ The first releases below were written afterwards, from the history, and tagged o
 - A design check and a quantity take-off.
 - A React frontend with a Home screen, a workspace, a trace of the run, a version list and the analysis tabs.
 
-[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.1...v0.7.0
