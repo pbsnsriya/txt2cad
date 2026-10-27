@@ -1,6 +1,6 @@
 {
   "name": "txt2cad-frontend",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "license": "GPL-3.0-only",
   "private": true,
   "description": "Web app for txt2cad: describe a building, watch it grow in 3D, export IFC and DXF.",

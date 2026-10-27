@@ -8,6 +8,8 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-27
+
 ### Added
 
 - A shareable page: "Shareable page (.html)" in the Export menu is one file with the model, a viewer and its styles inside, for opening offline in any browser. Turn, move and zoom the model, perspective or orthographic, top, side and 3D views, floors one at a time, layers (roof, furniture, doors and windows), "Look inside" with room names, click an element to see what it is, keyboard and touch control, light and dark themes, and Save picture. The file asks nothing of the network and does not contain your request. `GET /api/projects/{id}/versions/{n}/export?format=html`.
@@ -123,7 +125,8 @@ The first releases below were written afterwards, from the history, and tagged o
 - A design check and a quantity take-off.
 - A React frontend with a Home screen, a workspace, a trace of the run, a version list and the analysis tabs.
 
-[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/pbsnsriya/txt2cad/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/pbsnsriya/txt2cad/compare/v0.6.0...v0.6.1
