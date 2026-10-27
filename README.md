@@ -49,6 +49,7 @@ that one derived description, so the 3D model and the plans always agree to the 
 | **Feedback and pictures** | "Feedback" writes a note you can read in full and opens it as a GitHub issue (your request is included only if you tick the box). "Save picture" saves the 3D view as a PNG. |
 | **Sizes by hand** | The Sizes tab lists every room with its width and depth. Type a new one (or a new footprint for the whole building) and the plan is stretched to fit: the rooms beside it move over, doors and windows are put back, and it is saved as a new version. No model is called, so it takes a moment and costs nothing. |
 | **Shareable page** | "Shareable page (.html)" in the Export menu is one file with the model, a viewer and its styles inside. Anyone can open it offline in a browser: turn, move and zoom the model, switch between perspective and orthographic, jump to top, side and 3D views, show floors one by one, switch the roof and furniture off, "Look inside" to read the room names, click an element to see what it is, and save a picture. Nothing in the file is fetched or sent anywhere, and your request text is not in it. |
+| **For AI agents (MCP)** | txt2cad runs as an MCP server, so Claude Code, Cursor and other agents can build a building from a sentence, change sizes, inspect it and export IFC, DXF, SVG or the shareable page, using the same projects as the app. See [docs/mcp.md](docs/mcp.md). |
 | **Exports** | IFC4 for BIM tools, DXF floor plans (named layers, metres, door swings, dimensions, stair symbols), an SVG of the plans, and JSON of the design and geometry. |
 | **Plans tab** | The floor plans of every level, drawn from the same document as the DXF download. |
 | **Design check tab** | An indicative check against a few dwelling rules (exits, stair geometry, ceiling height, daylight, bedroom escape windows) with "show in model". It is labelled as indicative and is not a compliance report. |
@@ -131,7 +132,7 @@ current design go to Google using your own key. The model menu says where each m
 | Streaming | Server-Sent Events over POST |
 | Frontend | React 19, TypeScript 7, Vite 8, Tailwind CSS v4, Radix UI primitives, Lucide icons |
 | 3D | That Open (`@thatopen/components`, `@thatopen/fragments`) on three.js, with `web-ifc` pinned to 0.0.77 |
-| Tests | pytest (363 tests, no network), Vitest (35 tests), headless-browser checks of the main flows |
+| Tests | pytest (378 tests, no network), Vitest (35 tests), headless-browser checks of the main flows |
 
 ## Project layout
 
@@ -158,7 +159,7 @@ docs/              architecture, API, screenshots
 ## Tests
 
 ```bash
-cd backend  && .venv/Scripts/python -m pytest        # 363 tests on the practice model, no network
+cd backend  && .venv/Scripts/python -m pytest        # 378 tests on the practice model, no network
 cd frontend && npm test                                # 35 tests
 cd frontend && npx tsc --noEmit                        # type check
 cd design   && python contrast.py tokens.json          # WCAG contrast of every text/background pair (also tokens.dark.json)
@@ -193,6 +194,7 @@ reader on every prefix of a real reply.
 
 - [docs/architecture.md](docs/architecture.md): pipeline, data model, geometry rules, concurrency, decisions
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version, and [CONTRIBUTING.md](CONTRIBUTING.md): commit messages, branches, versions and releases
+- [docs/mcp.md](docs/mcp.md): using txt2cad from an AI agent
 - [docs/api.md](docs/api.md): HTTP routes and the event stream
 - [docs/testing.md](docs/testing.md): the test plan and what is checked by hand
 - [docs/privacy.md](docs/privacy.md): what stays on your computer and what is sent

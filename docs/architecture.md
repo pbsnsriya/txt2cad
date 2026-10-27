@@ -94,6 +94,12 @@ doors, windows, stairs) plus the element the user clicked, and emits only the st
   produces furniture and thin covering skins (the wall skins have holes where the openings are); IFC writes them as IfcFurniture and IfcCovering, DXF as footprints on A-FURN.
   Ceiling lights hang from the ceiling and may be over other furniture; `furnish` adds one for about every 14 m2 of a room. A new door or stair moves furniture out of its way; a door kind "opening" is an archway, and any door wider than 2 m is taken to be one.
 
+## One set of operations, two front doors
+
+`app/service.py` holds the operations (prepare a run, change sizes, revert, export, analyse, pick a model) and raises `ServiceError` with an HTTP-style status. The HTTP routes in `api/routes.py` and the MCP tools in
+`app/mcp_server.py` are thin: they check their inputs, call the service, and turn a `ServiceError` into a response or a tool error. They cannot disagree about what an operation does.
+The MCP server (`python backend/run_mcp.py`, stdio only) runs the pipeline in process, reports progress while a build goes on, and shares the data folder with the app. See [mcp.md](mcp.md).
+
 ## The shareable page
 
 `GET .../export?format=html` returns one HTML file (`export/share.py`, `export/share_page.html`). The model is read back from the saved IFC with `ifcopenshell.geom`, so the page shows what the IFC holds:

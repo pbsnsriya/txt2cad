@@ -204,6 +204,18 @@ To make the checks block a merge, turn on branch protection for `main` in the re
 | F21-E1 | edge | Automatic accessibility check; a file whose data is cut out | No violations; a clear message in an alert | e2e |
 | F21-U | unit | Camera maths and visibility rules; the page builder, data, escaping, determinism and privacy | See `logic.test.ts` and `test_share.py` | Vitest, pytest |
 
+## F22 MCP server
+
+| Case | Type | Steps | Expected | Auto |
+| --- | --- | --- | --- | --- |
+| F22-H1 | happy | List the tools | Nine tools with descriptions; reading tools marked read-only; none destructive; only `build` reaches a model | pytest |
+| F22-H2 | happy | `build`, `get_version`, `list_projects`, `list_versions`, `analysis` | A project with rooms, ids, sizes, requirements and counts; progress is reported; the app lists the same project | pytest |
+| F22-H3 | happy | `build` with a project id; `set_sizes` for a room and for the building; `restore_version` | New versions each time, nothing deleted | pytest |
+| F22-H4 | happy | `export` in every format | Real files in the folder named; a second export is numbered, not overwritten | pytest |
+| F22-E1 | edge | Unknown project, version, room, format, model; an empty or huge prompt; a missing folder; no Gemini key; a build that cannot be done | An error in words and nothing saved | pytest |
+| F22-E2 | edge | No tool takes a key, token or password | True for every tool | pytest |
+| F22-H5 | happy | A client starts `run_mcp.py` as a program from another folder and uses it over stdio | List, build and export work | pytest |
+
 ## Checked by hand
 
 - Visual glitches in the 3D view on real graphics hardware (the automated runs use a software renderer).

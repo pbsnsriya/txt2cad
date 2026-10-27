@@ -8,6 +8,14 @@ The first releases below were written afterwards, from the history, and tagged o
 
 ## [Unreleased]
 
+### Added
+
+- An MCP server (`python backend/run_mcp.py`): Claude Code, Cursor and other agents can build a building from a sentence, change it, change sizes by hand, inspect it, restore an earlier version and export IFC, DXF, SVG, the shareable page or JSON, using the same projects as the app. Nine tools; only `build` reaches the model, and no tool deletes anything. See `docs/mcp.md`.
+
+### Changed
+
+- The operations behind the HTTP API now live in `app/service.py`, which the MCP server shares, so the two cannot disagree. The API behaves as before.
+
 ## [0.9.0] - 2026-10-27
 
 ### Added
