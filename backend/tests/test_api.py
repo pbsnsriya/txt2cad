@@ -135,7 +135,7 @@ def test_delete_removes_rows_and_files(client, tmp_path):
 
 
 def test_the_selected_element_reaches_the_model_as_words(client, monkeypatch):
-    from app.api import routes
+    from app import service
     from app.llm.base import LLMRequest
     seen: list[LLMRequest] = []
 
@@ -150,7 +150,7 @@ def test_the_selected_element_reaches_the_model_as_words(client, monkeypatch):
     run(client, pid, "a small cabin with a kitchen and one bedroom")
     guids = json.loads(__import__("app.db.repo", fromlist=["x"]).get_version(config.LOCAL_OWNER, pid, 1)["guids_json"])
     guid = guids["element:room.L1.kitchen"]
-    monkeypatch.setattr(routes, "make_llm", lambda profile: Spy())
+    monkeypatch.setattr(service, "make_llm", lambda profile: Spy())
     evs = run(client, pid, "make this room bigger", base_version=1, focus_guid=guid)
     build = [r for r in seen if r.schema_name == "build"][0]
     assert "SELECTED IN THE VIEWER: 1 element" in build.user and "the room kitchen 'Kitchen'" in build.user
