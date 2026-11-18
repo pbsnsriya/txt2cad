@@ -1,6 +1,6 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
-pydantic>=2.7
+pydantic>=2.14.1
 ifcopenshell>=0.8
 shapely>=2.0
 ezdxf>=1.3
