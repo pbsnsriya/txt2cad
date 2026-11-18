@@ -3,7 +3,7 @@ uvicorn[standard]>=0.30
 pydantic>=2.7
 ifcopenshell>=0.8
 shapely>=2.0
-ezdxf>=1.3
+ezdxf>=1.4.5
 pillow                      # needed by ezdxf's drawing add-on, which writes the SVG plan
 httpx>=0.27
 mcp>=2.3                       # the Model Context Protocol SDK, for app/mcp_server.py
